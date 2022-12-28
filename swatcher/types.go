@@ -1,10 +1,12 @@
 package swatcher
 
 import (
-	"os"
+	"os/exec"
 
-	"github.com/spf13/cobra"
+	"github.com/pkg/errors"
 )
+
+const ServiceDefinitionDir = "/etc/sminit"
 
 type Manager interface {
 	Start()
@@ -16,7 +18,9 @@ type Manager interface {
 }
 
 type Swatcher struct {
-	PID int
+	Cmd                 *exec.Cmd
+	UserDefinedServices []UserDefinedService
+	Children            []Service
 }
 
 type Status int
@@ -28,15 +32,21 @@ const (
 )
 
 type Service struct {
-	Status   Status
+	Name     string
 	Children []Service
-	Cmd      *cobra.Command
-	LogsPath string
+	Cmd      *exec.Cmd
+}
+
+type UserDefinedService struct {
+	Name      string
+	Cmd       string
+	RunBefore []string
+	RunAfter  []string
+	Log       string
 }
 
 func NewSwatcher() (Swatcher, error) {
-	pid := os.Getpid()
-	return Swatcher{pid}, nil
+	return Swatcher{}, nil
 }
 
 func Watch() error {
@@ -46,5 +56,21 @@ func Watch() error {
 	// start services
 	// wait for input from another process
 	// watch running service and respawn them if they were terminated.
+	swatcher, err := NewSwatcher()
+	if err != nil {
+		return errors.Wrapf(err, "couldn't create a new Swatcher")
+	}
+
+	userDefinedServices, err := swatcher.LoadAll(ServiceDefinitionDir)
+	if err != nil {
+		return errors.Wrapf(err, "couldn't load services")
+	}
+
+	swatcher.UserDefinedServices = userDefinedServices
+
+	services, err = Sort(userDefinedServices)
+	swatcher.Children = services
+	swatcher.Watch()
+	// swatcher.Sort()
 	return nil
 }

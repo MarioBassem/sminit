@@ -13,17 +13,17 @@ func TestLoader(t *testing.T) {
 	tmpDir := t.TempDir()
 	want := []UserDefinedService{
 		{
-			Name:   "s1",
-			Cmd:    "echo hi",
-			Before: []string{"s2", "s3"},
-			After:  []string{"s4", "s5"},
-			Log:    "log1",
+			Name:      "s1",
+			Cmd:       "echo hi",
+			RunBefore: []string{"s2", "s3"},
+			RunAfter:  []string{"s4", "s5"},
+			Log:       "log1",
 		},
 		{
-			Name:   "s2",
-			Cmd:    "echo \"hello world\"",
-			Before: []string{"s1", "s3"},
-			After:  []string{"s2", "s4"},
+			Name:      "s2",
+			Cmd:       "echo \"hello world\"",
+			RunBefore: []string{"s1", "s3"},
+			RunAfter:  []string{"s2", "s4"},
 		},
 	}
 

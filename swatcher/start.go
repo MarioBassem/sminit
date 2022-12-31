@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"strings"
 	"sync"
 	"time"
 
@@ -19,6 +18,16 @@ var wg sync.WaitGroup
 func (s Swatcher) Start() error {
 
 	for _, service := range s.SortedServices {
+		if service.Log == "stdout" {
+			service.Stdout = Stdout{
+				File:   os.Stdout,
+				Prefix: fmt.Sprintf("[+]%s: ", service.Name),
+			}
+			service.Stderr = Stderr{
+				File:   os.Stderr,
+				Prefix: fmt.Sprintf("[-]%s: ", service.Name),
+			}
+		}
 		wg.Add(1)
 		go SpawnAndWatch(service)
 
@@ -28,22 +37,25 @@ func (s Swatcher) Start() error {
 }
 
 func SpawnAndWatch(service Service) error {
+	pid := os.Getpid()
+	log.Printf("pid: %d", pid)
+	sminitLog := log.New(os.Stdout, "[+]sminit:", log.Ldate|log.Ltime)
+	sminitLogFail := log.New(os.Stdout, "[-]sminit:", log.Ldate|log.Ltime)
 	err := backoff.Retry(func() error {
-		log.Printf("[+]sminit: starting service %s", service.Name)
-		s := strings.Split(service.CmdStr, " ")
-		if len(s) < 1 {
-			return backoff.Permanent(errors.New("cmd string is empty"))
+		sminitLog.Printf("starting service %s", service.Name)
+
+		cmd := exec.Command("bash", "-c", service.CmdStr)
+		if service.Log == "stdout" {
+			cmd.Stdout = &service.Stdout
+			cmd.Stderr = &service.Stderr
 		}
-		cmd := exec.Command(s[0], s[:]...)
-		cmd.Stderr = os.Stderr
-		cmd.Stdout = os.Stdout
 
 		err := cmd.Run()
 		if err != nil {
-			log.Printf("[-]sminit: error running process %s. %s", service.Name, err.Error())
+			sminitLogFail.Printf("error running process %s. %s", service.Name, err.Error())
 			return errors.New("restarting service")
 		}
-		log.Printf("[+]sminit: service %s has finished. restarting...", service.Name)
+		sminitLog.Printf("service %s has finished. restarting...", service.Name)
 		return errors.New("restarting service")
 
 	}, NewExponentialBackOff())

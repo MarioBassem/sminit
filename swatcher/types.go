@@ -1,7 +1,10 @@
 package swatcher
 
 import (
+	"fmt"
+	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/pkg/errors"
 )
@@ -19,7 +22,7 @@ type Manager interface {
 
 type Swatcher struct {
 	Cmd                 *exec.Cmd
-	UserDefinedServices []UserDefinedService
+	UserDefinedServices []Service
 	SortedServices      []Service
 }
 
@@ -32,17 +35,33 @@ const (
 )
 
 type Service struct {
-	Name   string
-	CmdStr string
-	Logs   string
-}
-
-type UserDefinedService struct {
 	Name      string
-	Cmd       string
+	CmdStr    string
+	Log       string
 	RunBefore []string
 	RunAfter  []string
-	Log       string
+	Stdout    Stdout
+	Stderr    Stderr
+}
+
+type Stdout struct {
+	File   *os.File
+	Prefix string
+}
+
+type Stderr struct {
+	File   *os.File
+	Prefix string
+}
+
+func (s *Stdout) Write(b []byte) (n int, err error) {
+	str := strings.Join([]string{s.Prefix, string(b), "\n"}, "")
+	return s.File.Write([]byte(str))
+}
+
+func (s *Stderr) Write(b []byte) (n int, err error) {
+	str := strings.Join([]string{s.Prefix, string(b), "\n"}, "")
+	return s.File.Write([]byte(str))
 }
 
 func NewSwatcher() (Swatcher, error) {
@@ -75,10 +94,18 @@ func Watch() error {
 	return nil
 }
 
-func NewService(userDefinedService UserDefinedService) Service {
+func NewService(service Service) Service {
 
 	return Service{
-		Name:   userDefinedService.Name,
-		CmdStr: userDefinedService.Cmd,
+		Name:   service.Name,
+		CmdStr: service.CmdStr,
+		Stdout: Stdout{
+			File:   os.Stdout,
+			Prefix: fmt.Sprintf("[+]%s: ", service.Name),
+		},
+		Stderr: Stderr{
+			File:   os.Stderr,
+			Prefix: fmt.Sprintf("[-]%s: ", service.Name),
+		},
 	}
 }

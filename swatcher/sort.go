@@ -6,7 +6,7 @@ import (
 )
 
 // Sort's job is to build relationships between services, and decide which should run before which.
-func Sort(serviceMap map[string]UserDefinedService) ([]Service, error) {
+func Sort(serviceMap map[string]Service) ([]Service, error) {
 	// dependencyMap is a map from a service "a" to a list of services that should run after service "a".
 	dependencyMap := map[string][]string{}
 
@@ -27,7 +27,7 @@ func Sort(serviceMap map[string]UserDefinedService) ([]Service, error) {
 }
 
 // topologicalSort should sort the services topologically. it should return an error if the dependecyMap contains a cycle.
-func topologicalSort(dependencyMap map[string][]string, serviceMap map[string]UserDefinedService) ([]Service, error) {
+func topologicalSort(dependencyMap map[string][]string, serviceMap map[string]Service) ([]Service, error) {
 	vis := map[string]int{}
 	st := stack.Stack[string]{}
 	for service := range dependencyMap {

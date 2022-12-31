@@ -11,17 +11,17 @@ import (
 
 func TestLoader(t *testing.T) {
 	tmpDir := t.TempDir()
-	want := []UserDefinedService{
+	want := []Service{
 		{
 			Name:      "s1",
-			Cmd:       "echo hi",
+			CmdStr:    "echo hi",
 			RunBefore: []string{"s2", "s3"},
 			RunAfter:  []string{"s4", "s5"},
 			Log:       "log1",
 		},
 		{
 			Name:      "s2",
-			Cmd:       "echo \"hello world\"",
+			CmdStr:    "echo \"hello world\"",
 			RunBefore: []string{"s1", "s3"},
 			RunAfter:  []string{"s2", "s4"},
 		},

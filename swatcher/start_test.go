@@ -11,12 +11,14 @@ func TestStart(t *testing.T) {
 		sortedServices := []Service{
 			{
 				Name:   "s1",
-				CmdStr: "echo \"service s1 hiii\"",
+				CmdStr: "echo hiiiii",
+				Log:    "stdout",
 			},
-			{
-				Name:   "s2",
-				CmdStr: "echo \"service s2 hiii\"",
-			},
+			// {
+			// 	Name:   "s2",
+			// 	CmdStr: "echo \"service s2 hiii\"",
+			// 	Log:    "stdout",
+			// },
 		}
 		swatcher, err := NewSwatcher()
 		swatcher.SortedServices = sortedServices

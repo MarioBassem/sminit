@@ -9,29 +9,29 @@ import (
 
 func TestSort(t *testing.T) {
 	t.Run("valid dependencies", func(t *testing.T) {
-		serviceMap := map[string]UserDefinedService{
+		serviceMap := map[string]Service{
 			"s1": {
 				Name:      "s1",
-				Cmd:       "echi hi",
+				CmdStr:    "echi hi",
 				RunBefore: []string{"s2", "s3"},
 				Log:       "fd1",
 			},
 			"s2": {
 				Name:      "s2",
-				Cmd:       "echo hi2",
+				CmdStr:    "echo hi2",
 				RunBefore: []string{"s3"},
 				RunAfter:  []string{"s1"},
 				Log:       "fd1",
 			},
 			"s3": {
 				Name:     "s3",
-				Cmd:      "echo hi3",
+				CmdStr:   "echo hi3",
 				RunAfter: []string{"s1", "s2"},
 				Log:      "fd1",
 			},
 			"s4": {
 				Name:     "s4",
-				Cmd:      "echo hi4",
+				CmdStr:   "echo hi4",
 				RunAfter: []string{"s3"},
 				Log:      "fd1",
 			},
@@ -54,29 +54,29 @@ func TestSort(t *testing.T) {
 	})
 
 	t.Run("dependencies contain a cycle", func(t *testing.T) {
-		serviceMap := map[string]UserDefinedService{
+		serviceMap := map[string]Service{
 			"s1": {
 				Name:      "s1",
-				Cmd:       "echi hi",
+				CmdStr:    "echi hi",
 				RunBefore: []string{"s2", "s3"},
 				Log:       "fd1",
 			},
 			"s2": {
 				Name:      "s2",
-				Cmd:       "echo hi2",
+				CmdStr:    "echo hi2",
 				RunBefore: []string{"s3"},
 				RunAfter:  []string{"s1"},
 				Log:       "fd1",
 			},
 			"s3": {
 				Name:     "s3",
-				Cmd:      "echo hi3",
+				CmdStr:   "echo hi3",
 				RunAfter: []string{"s1", "s2"},
 				Log:      "fd1",
 			},
 			"s4": {
 				Name:      "s4",
-				Cmd:       "echo hi4",
+				CmdStr:    "echo hi4",
 				RunBefore: []string{"s1"},
 				RunAfter:  []string{"s3"},
 				Log:       "fd1",

@@ -61,4 +61,6 @@ func TestLoader(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, want[0], service)
 	})
+
+	// TODO: add test that fails if a service is mentioned as dependency but does not exist
 }

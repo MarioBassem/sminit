@@ -20,7 +20,7 @@ type Manager interface {
 type Swatcher struct {
 	Cmd                 *exec.Cmd
 	UserDefinedServices []UserDefinedService
-	Children            []Service
+	SortedServices      []Service
 }
 
 type Status int
@@ -32,9 +32,9 @@ const (
 )
 
 type Service struct {
-	Name     string
-	Children []Service
-	Cmd      *exec.Cmd
+	Name   string
+	CmdStr string
+	Logs   string
 }
 
 type UserDefinedService struct {
@@ -68,9 +68,17 @@ func Watch() error {
 
 	swatcher.UserDefinedServices = userDefinedServices
 
-	services, err = Sort(userDefinedServices)
-	swatcher.Children = services
-	swatcher.Watch()
+	// services, err = Sort(userDefinedServices)
+	// swatcher.SortedServices = services
+	// swatcher.Watch()
 	// swatcher.Sort()
 	return nil
+}
+
+func NewService(userDefinedService UserDefinedService) Service {
+
+	return Service{
+		Name:   userDefinedService.Name,
+		CmdStr: userDefinedService.Cmd,
+	}
 }

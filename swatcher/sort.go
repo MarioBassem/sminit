@@ -47,7 +47,7 @@ func topologicalSort(dependencyMap map[string][]string, serviceMap map[string]Se
 			// this shouldn't happen because Top() returns an error if stack is empty, which we ensured is not true.
 			return nil, err
 		}
-		sortedServices = append(sortedServices, NewService(serviceMap[top]))
+		sortedServices = append(sortedServices, serviceMap[top])
 	}
 
 	return sortedServices, nil

@@ -1,12 +1,8 @@
 package swatcher
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
-	"strings"
-
-	"github.com/pkg/errors"
 )
 
 const ServiceDefinitionDir = "/etc/sminit"
@@ -21,9 +17,8 @@ type Manager interface {
 }
 
 type Swatcher struct {
-	Cmd                 *exec.Cmd
-	UserDefinedServices []Service
-	SortedServices      []Service
+	Cmd            *exec.Cmd
+	SortedServices []Service
 }
 
 type Status int
@@ -36,7 +31,7 @@ const (
 
 type Service struct {
 	Name      string
-	CmdStr    string
+	Cmd       string
 	Log       string
 	RunBefore []string
 	RunAfter  []string
@@ -55,57 +50,27 @@ type Stderr struct {
 }
 
 func (s *Stdout) Write(b []byte) (n int, err error) {
-	str := strings.Join([]string{s.Prefix, string(b), "\n"}, "")
-	return s.File.Write([]byte(str))
+	_, err = s.File.Write([]byte(s.Prefix))
+	if err != nil {
+		return 0, err
+	}
+
+	return s.File.Write(b)
 }
 
 func (s *Stderr) Write(b []byte) (n int, err error) {
-	str := strings.Join([]string{s.Prefix, string(b), "\n"}, "")
-	return s.File.Write([]byte(str))
+	_, err = s.File.Write([]byte(s.Prefix))
+	if err != nil {
+		return 0, err
+	}
+
+	return s.File.Write(b)
 }
 
+// NewSwatcher creates a new Swatcher, it should return an error if an instance of Swatcher is already running.
 func NewSwatcher() (Swatcher, error) {
+	// check if there is an instance running of Swatcher
+	// if there is: return an error
+	// if not: create a new one
 	return Swatcher{}, nil
-}
-
-func Watch() error {
-	// this is the entry point of Swatcher
-	// fetch all service definition files from /etc/sminit
-	// create relationships between services
-	// start services
-	// wait for input from another process
-	// watch running service and respawn them if they were terminated.
-	swatcher, err := NewSwatcher()
-	if err != nil {
-		return errors.Wrapf(err, "couldn't create a new Swatcher")
-	}
-
-	userDefinedServices, err := swatcher.LoadAll(ServiceDefinitionDir)
-	if err != nil {
-		return errors.Wrapf(err, "couldn't load services")
-	}
-
-	swatcher.UserDefinedServices = userDefinedServices
-
-	// services, err = Sort(userDefinedServices)
-	// swatcher.SortedServices = services
-	// swatcher.Watch()
-	// swatcher.Sort()
-	return nil
-}
-
-func NewService(service Service) Service {
-
-	return Service{
-		Name:   service.Name,
-		CmdStr: service.CmdStr,
-		Stdout: Stdout{
-			File:   os.Stdout,
-			Prefix: fmt.Sprintf("[+]%s: ", service.Name),
-		},
-		Stderr: Stderr{
-			File:   os.Stderr,
-			Prefix: fmt.Sprintf("[-]%s: ", service.Name),
-		},
-	}
 }

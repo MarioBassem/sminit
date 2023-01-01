@@ -37,24 +37,19 @@ func (s Swatcher) Start() error {
 }
 
 func SpawnAndWatch(service Service) error {
-	pid := os.Getpid()
-	log.Printf("pid: %d", pid)
-	sminitLog := log.New(os.Stdout, "[+]sminit:", log.Ldate|log.Ltime)
-	sminitLogFail := log.New(os.Stdout, "[-]sminit:", log.Ldate|log.Ltime)
+	sminitLog := log.New(os.Stdout, "[+]sminit:", 0)
+	sminitLogFail := log.New(os.Stdout, "[-]sminit:", 0)
 	err := backoff.Retry(func() error {
 		sminitLog.Printf("starting service %s", service.Name)
 
-		cmd := exec.Command("bash", "-c", service.CmdStr)
-		if service.Log == "stdout" {
-			cmd.Stdout = &service.Stdout
-			cmd.Stderr = &service.Stderr
-		}
+		cmd := createCommand(service)
 
 		err := cmd.Run()
 		if err != nil {
 			sminitLogFail.Printf("error running process %s. %s", service.Name, err.Error())
 			return errors.New("restarting service")
 		}
+
 		sminitLog.Printf("service %s has finished. restarting...", service.Name)
 		return errors.New("restarting service")
 
@@ -73,10 +68,19 @@ func NewExponentialBackOff() *backoff.ExponentialBackOff {
 		InitialInterval:     backoff.DefaultInitialInterval,
 		RandomizationFactor: backoff.DefaultRandomizationFactor,
 		Multiplier:          backoff.DefaultMultiplier,
-		MaxInterval:         5 * time.Second,
+		MaxInterval:         3 * time.Second,
 		MaxElapsedTime:      0,
 		Clock:               backoff.SystemClock,
 	}
 	b.Reset()
 	return &b
+}
+
+func createCommand(service Service) *exec.Cmd {
+	cmd := exec.Command("bash", "-c", service.Cmd)
+	if service.Log == "stdout" {
+		cmd.Stdout = &service.Stdout
+		cmd.Stderr = &service.Stderr
+	}
+	return cmd
 }

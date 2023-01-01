@@ -12,26 +12,26 @@ func TestSort(t *testing.T) {
 		serviceMap := map[string]Service{
 			"s1": {
 				Name:      "s1",
-				CmdStr:    "echi hi",
+				Cmd:       "echi hi",
 				RunBefore: []string{"s2", "s3"},
 				Log:       "fd1",
 			},
 			"s2": {
 				Name:      "s2",
-				CmdStr:    "echo hi2",
+				Cmd:       "echo hi2",
 				RunBefore: []string{"s3"},
 				RunAfter:  []string{"s1"},
 				Log:       "fd1",
 			},
 			"s3": {
 				Name:     "s3",
-				CmdStr:   "echo hi3",
+				Cmd:      "echo hi3",
 				RunAfter: []string{"s1", "s2"},
 				Log:      "fd1",
 			},
 			"s4": {
 				Name:     "s4",
-				CmdStr:   "echo hi4",
+				Cmd:      "echo hi4",
 				RunAfter: []string{"s3"},
 				Log:      "fd1",
 			},
@@ -57,26 +57,26 @@ func TestSort(t *testing.T) {
 		serviceMap := map[string]Service{
 			"s1": {
 				Name:      "s1",
-				CmdStr:    "echi hi",
+				Cmd:       "echi hi",
 				RunBefore: []string{"s2", "s3"},
 				Log:       "fd1",
 			},
 			"s2": {
 				Name:      "s2",
-				CmdStr:    "echo hi2",
+				Cmd:       "echo hi2",
 				RunBefore: []string{"s3"},
 				RunAfter:  []string{"s1"},
 				Log:       "fd1",
 			},
 			"s3": {
 				Name:     "s3",
-				CmdStr:   "echo hi3",
+				Cmd:      "echo hi3",
 				RunAfter: []string{"s1", "s2"},
 				Log:      "fd1",
 			},
 			"s4": {
 				Name:      "s4",
-				CmdStr:    "echo hi4",
+				Cmd:       "echo hi4",
 				RunBefore: []string{"s1"},
 				RunAfter:  []string{"s3"},
 				Log:       "fd1",

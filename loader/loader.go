@@ -1,4 +1,4 @@
-package swatcher
+package loader
 
 import (
 	"os"
@@ -8,16 +8,25 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type Service struct {
+	Name        string
+	Cmd         string
+	Log         string
+	After       []string
+	OneShot     bool
+	HealthCheck string
+}
+
 // LoadAll is responsible for loading all services from /etc/sminit into multiple Service structs
 // Users should provide their service definition yaml files in /etc/sminit
 // Load ignores any subdirectories in /etc/sminit, or any non-regular files.
-func (s Swatcher) LoadAll(dirPath string) ([]Service, error) {
+func LoadAll(dirPath string) (map[string]Service, error) {
 	entries, err := os.ReadDir(dirPath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "couldn't read entries of %s.", dirPath)
 	}
 
-	services := []Service{}
+	serviceMap := map[string]Service{}
 
 	for _, entry := range entries {
 		if !entry.Type().IsRegular() {
@@ -25,19 +34,18 @@ func (s Swatcher) LoadAll(dirPath string) ([]Service, error) {
 		}
 
 		name := entry.Name()
-		service, err := s.Load(dirPath, name)
+		service, err := Load(dirPath, name)
 		if err != nil {
 			return nil, errors.Wrapf(err, "couldn't load service %s.", name)
 		}
-
-		services = append(services, service)
+		serviceMap[service.Name] = service
 	}
 
-	return services, nil
+	return serviceMap, nil
 }
 
 // Load is responsible for loading a service from /etc/sminit with a provided serviceName into a Service struct.
-func (s Swatcher) Load(dirPath, serviceName string) (Service, error) {
+func Load(dirPath, serviceName string) (Service, error) {
 	path := path.Join(dirPath, serviceName)
 
 	bytes, err := os.ReadFile(path)

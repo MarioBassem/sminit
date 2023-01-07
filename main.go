@@ -1,48 +1,24 @@
 package main
 
 import (
-	"fmt"
+	"log"
+	"os"
 
-	"github.com/spf13/cobra"
+	"github.com/mariobassem/sminit-go/swatcher"
 )
 
 func main() {
-	var rootCmd = &cobra.Command{
-		Use:   "root [sub]",
-		Short: "My root command",
+	err := swatcher.Swatch()
+	if err != nil {
+		log.Print(err)
 	}
+	cleanUp()
+}
 
-	// var subCmd = &cobra.Command{
-	// 	Use:   "sub [no options!]",
-	// 	Short: "My subcommand",
-	// 	PreRun: func(cmd *cobra.Command, args []string) {
-	// 		fmt.Printf("Inside subCmd PreRun with args: %v\n", args)
-	// 	},
-	// 	Run: func(cmd *cobra.Command, args []string) {
-	// 		fmt.Printf("Inside subCmd Run with args: %v\n", args)
-	// 	},
-	// 	PostRun: func(cmd *cobra.Command, args []string) {
-	// 		fmt.Printf("Inside subCmd PostRun with args: %v\n", args)
-	// 	},
-	// 	PersistentPostRun: func(cmd *cobra.Command, args []string) {
-	// 		fmt.Printf("Inside subCmd PersistentPostRun with args: %v\n", args)
-	// 	},
-	// }
-
-	var listCmd = &cobra.Command{
-		Use:   "list",
-		Short: "list: lists all subcommands",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("this is the list command\n")
-		},
+// cleanUp should delete /run/sminit
+func cleanUp() {
+	err := os.RemoveAll(swatcher.SminitRunDir)
+	if err != nil {
+		swatcher.SminitLogFail.Print(err)
 	}
-	rootCmd.SetHelpTemplate("help template\n")
-	rootCmd.AddCommand(listCmd)
-	// rootCmd.SetArgs([]string{""})
-	rootCmd.Execute()
-	// fmt.Println()
-	// rootCmd.SetArgs([]string{"sub", "arg1", "arg2"})
-	// rootCmd.Execute()
-	// c := exec.Command("ping", "google.com")
-	// c.ProcessState.
 }

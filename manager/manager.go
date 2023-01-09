@@ -31,7 +31,6 @@ type Manager interface {
 	Stop(name string) error
 	// List lists all services tracked by the manager.
 	List() []ServiceShort
-	// Log()
 }
 
 type manager struct {
@@ -87,10 +86,6 @@ func NewManager(loadedServices map[string]loader.Service) (Manager, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to modify service graph")
 		}
-	}
-
-	for name, service := range manager.services {
-		log.Printf("service %s: %+v", name, *service)
 	}
 
 	for name, service := range manager.services {
@@ -190,11 +185,6 @@ type ServiceShort struct {
 	Status Status
 }
 
-// func (m *manager) Log() error {
-// 	// show stdout in current shell
-// 	// return
-// }
-
 func (m *manager) serviceRoutine(name string) {
 	// watch for two signals: start and delete
 	// start:
@@ -222,7 +212,6 @@ func (m *manager) serviceRoutine(name string) {
 				case <-service.context.Done():
 					return backoff.Permanent(fmt.Errorf("service %s was stopped", service.name))
 				default:
-					sminitLog.Printf("starting service %s", service.name)
 
 					cmd := exec.CommandContext(service.context, "bash", "-c", service.cmdStr)
 					if service.log == "stdout" {
@@ -232,7 +221,7 @@ func (m *manager) serviceRoutine(name string) {
 
 					err := cmd.Start()
 					if err != nil {
-						sminitLogFail.Printf("error starting process %s. %s", service.name, err.Error())
+						sminitLogFail.Printf("error while starting process %s. %s", service.name, err.Error())
 						return errors.New("restarting service")
 					}
 					m.changeStatus(service.name, Started)
@@ -243,17 +232,15 @@ func (m *manager) serviceRoutine(name string) {
 
 					err = cmd.Wait()
 					if err != nil {
-						sminitLogFail.Printf("error running process %s. %s", service.name, err.Error())
+						sminitLogFail.Printf("error while running process %s. %s", service.name, err.Error())
 						return errors.New("restarting service")
 					} else {
 						m.changeStatus(service.name, Successful)
 						if service.oneShot == true {
-							log.Print("********")
 							return backoff.Permanent(fmt.Errorf("service %s has finished.", service.name))
 						}
 					}
 
-					sminitLog.Printf("service %s has finished. restarting...", service.name)
 					return errors.New("restarting service")
 				}
 			}, NewExponentialBackOff())
@@ -286,7 +273,6 @@ func isHealthy(service *Service) bool {
 			cmd := exec.CommandContext(service.context, "bash", "-c", service.healthCheck)
 			err := cmd.Run()
 			if err == nil {
-				sminitLog.Printf("service %s is healthyyyyyyyyyyyyyyyyyyyyyyyyyyy", service.name)
 				return true
 			}
 			time.Sleep(time.Millisecond * 500)

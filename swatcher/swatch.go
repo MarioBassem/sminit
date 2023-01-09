@@ -1,14 +1,14 @@
 package swatcher
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/fs"
 	"log"
 	"net"
 	"os"
+	"os/signal"
 	"strconv"
-	"strings"
+	"syscall"
 
 	"github.com/mariobassem/sminit-go/loader"
 	"github.com/mariobassem/sminit-go/manager"
@@ -23,14 +23,36 @@ type Swatcher struct {
 const (
 	SwatchPidPath        = "/run/sminit/swatch.pid"
 	SminitRunDir         = "/run/sminit"
+	SminitLogPath        = "/run/sminit.log"
 	SwatchSocketPath     = "/run/sminit/swatch.sock"
 	ServiceDefinitionDir = "/etc/sminit"
 )
 
 var (
-	SminitLog     = log.New(os.Stdout, "[+]sminit:", 0)
-	SminitLogFail = log.New(os.Stdout, "[-]sminit:", 0)
+	SminitLog     = log.New(os.Stdout, "[+]sminit: ", log.Lmsgprefix)
+	SminitLogFail = log.New(os.Stdout, "[-]sminit: ", log.Lmsgprefix)
 )
+
+func Swatch() error {
+	sigs := make(chan os.Signal, 1)
+
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGQUIT)
+
+	go func() {
+		<-sigs
+		CleanUp()
+		os.Exit(0)
+	}()
+
+	swatcher, err := NewSwatcher()
+	if err != nil {
+		return errors.Wrap(err, "failed to create a new Swatcher")
+	}
+	swatcher.StartServer()
+
+	return nil
+
+}
 
 // NewSwatcher creates a new Swatcher, it should return an error if an instance of Swatcher is already running.
 func NewSwatcher() (Swatcher, error) {
@@ -59,13 +81,11 @@ func NewSwatcher() (Swatcher, error) {
 	services, err := loader.LoadAll(ServiceDefinitionDir)
 	if err != nil {
 		return Swatcher{}, err
-		// do something
 	}
 
 	manager, err := manager.NewManager(services)
 	if err != nil {
 		return Swatcher{}, err
-		// do sth
 	}
 
 	return Swatcher{
@@ -107,166 +127,19 @@ func createSwatchPidFile() error {
 func createSwatchSocket() (net.Listener, error) {
 	listener, err := net.Listen("unix", SwatchSocketPath)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to create a listener on socket %s", SwatchSocketPath)
 	}
 	return listener, nil
 }
 
-func Swatch() error {
-	swatcher, err := NewSwatcher()
+// CleanUp should delete /run/sminit directory and /run/sminit.log
+func CleanUp() {
+	err := os.RemoveAll(SminitRunDir)
 	if err != nil {
-		return err
-		// do something
+		SminitLogFail.Printf("error while removing %s. %s", SminitRunDir, err.Error())
 	}
-	swatcher.StartServer()
-
-	return nil
-
-}
-
-type Message struct {
-	Success bool
-	Content []byte
-}
-
-func (s *Swatcher) StartServer() {
-	for {
-		conn, err := s.Listener.Accept()
-		if err != nil {
-			SminitLogFail.Fatalf("failed to accept connection. %s", err.Error())
-		}
-		go func(conn net.Conn) {
-			defer conn.Close()
-			// Create a buffer for incoming data.
-			buf := make([]byte, 1024)
-			// Read data from the connection.
-			n, err := conn.Read(buf)
-			if err != nil {
-				log.Fatal(err)
-			}
-			str := strings.Trim(string(buf[:n]), " \n")
-			splitStr := strings.Split(str, " ")
-
-			message := s.execute(splitStr)
-
-			b, errMarshal := json.Marshal(message)
-			if errMarshal != nil {
-				SminitLogFail.Print(errMarshal)
-			}
-
-			_, errWrite := conn.Write(b)
-			if errWrite != nil {
-				SminitLogFail.Print(errWrite)
-			}
-			return
-
-		}(conn)
-	}
-}
-
-func (s *Swatcher) execute(splitStr []string) Message {
-	cmd := splitStr[0]
-	var message Message
-	if cmd == "add" {
-		message = s.handleAdd(splitStr[1:])
-	} else if cmd == "delete" {
-		message = s.handleDelete(splitStr[1:])
-	} else if cmd == "start" {
-		message = s.handleStart(splitStr[1:])
-	} else if cmd == "stop" {
-		message = s.handleStop(splitStr[1:])
-	} else if cmd == "list" {
-		message = s.handleList(splitStr[1:])
-	} else {
-		message = Message{
-			Success: false,
-			Content: []byte("wrong parametrs"),
-		}
-	}
-
-	return message
-}
-
-func (s *Swatcher) handleAdd(args []string) Message {
-	serviceName := args[0]
-	service, err := loader.Load(ServiceDefinitionDir, serviceName)
+	err = os.Remove("/run/sminit.log")
 	if err != nil {
-		return Message{
-			Success: false,
-			Content: []byte(err.Error()),
-		}
-	}
-	err = s.Manager.Add(service)
-	if err != nil {
-		return Message{
-			Success: false,
-			Content: []byte(err.Error()),
-		}
-	}
-	return Message{
-		Success: true,
-	}
-}
-
-func (s *Swatcher) handleDelete(args []string) Message {
-	serviceName := args[0]
-	err := s.Manager.Delete(serviceName)
-	if err != nil {
-		return Message{
-			Success: false,
-			Content: []byte(err.Error()),
-		}
-	}
-	return Message{
-		Success: true,
-	}
-}
-
-func (s *Swatcher) handleStart(args []string) Message {
-	serviceName := args[0]
-	err := s.Manager.Start(serviceName)
-	if err != nil {
-		return Message{
-			Success: false,
-			Content: []byte(err.Error()),
-		}
-	}
-	return Message{
-		Success: true,
-	}
-}
-
-func (s *Swatcher) handleStop(args []string) Message {
-	serviceName := args[0]
-	err := s.Manager.Stop(serviceName)
-	if err != nil {
-		return Message{
-			Success: false,
-			Content: []byte(err.Error()),
-		}
-	}
-	return Message{
-		Success: true,
-	}
-}
-
-func (s *Swatcher) handleList(args []string) Message {
-	if len(args) != 0 {
-		return Message{
-			Success: false,
-			Content: []byte("wrong parameters"),
-		}
-	}
-	services := s.Manager.List()
-	b, err := json.Marshal(services)
-	if err != nil {
-		return Message{
-			Success: false,
-			Content: []byte(err.Error()),
-		}
-	}
-	return Message{
-		Success: true,
-		Content: b,
+		SminitLogFail.Printf("error while removing %s. %s", SminitLogPath, err.Error())
 	}
 }

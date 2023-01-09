@@ -3,6 +3,7 @@ package loader
 import (
 	"os"
 	"path"
+	"strings"
 
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
@@ -33,8 +34,15 @@ func LoadAll(dirPath string) (map[string]Service, error) {
 			continue
 		}
 
-		name := entry.Name()
-		service, err := Load(dirPath, name)
+		fullName := entry.Name()
+		splitStr := strings.Split(fullName, ".")
+		if len(splitStr) != 2 || splitStr[1] != "yaml" {
+			return nil, errors.Wrapf(err, "all service definition files should have the \".yaml\" extension. %s is invalid", fullName)
+		}
+
+		path := path.Join(dirPath, fullName)
+		name := splitStr[0]
+		service, err := Load(path, name)
 		if err != nil {
 			return nil, errors.Wrapf(err, "couldn't load service %s.", name)
 		}
@@ -45,8 +53,7 @@ func LoadAll(dirPath string) (map[string]Service, error) {
 }
 
 // Load is responsible for loading a service from /etc/sminit with a provided serviceName into a Service struct.
-func Load(dirPath, serviceName string) (Service, error) {
-	path := path.Join(dirPath, serviceName)
+func Load(path, serviceName string) (Service, error) {
 
 	bytes, err := os.ReadFile(path)
 	if err != nil {

@@ -78,7 +78,7 @@ func NewManager(loadedServices map[string]loader.Service) (Manager, error) {
 	}
 	for name, service := range loadedServices {
 		newService := generateService(service)
-		manager.services[name] = &newService
+		manager.services[name] = newService
 	}
 
 	for _, service := range loadedServices {
@@ -103,8 +103,11 @@ func (m *manager) Add(service loader.Service) error {
 	// fire go routine for service
 	// check if all parents are in Running or Successful state, if true, send a start signal for this service
 	// return
+	if _, ok := m.services[service.Name]; ok {
+		return fmt.Errorf("failed to add %s. a service with the same name is already tracked.", service.Name)
+	}
 	newService := generateService(service)
-	m.services[newService.name] = &newService
+	m.services[newService.name] = newService
 	err := m.addToGraph(service)
 	if err != nil {
 		return errors.Wrap(err, "failed to modify service graph")
@@ -122,7 +125,7 @@ func (m *manager) Delete(name string) error {
 	// remove from service map, and from graph
 	// return
 	if _, ok := m.services[name]; !ok {
-		return fmt.Errorf("there is no service with name %s", name)
+		return fmt.Errorf("there is no tracked service with name %s", name)
 	}
 
 	service := m.services[name]
@@ -144,7 +147,7 @@ func (m *manager) Start(name string) error {
 	// if all are running or successful, send start signal
 	// return
 	if _, ok := m.services[name]; !ok {
-		return fmt.Errorf("there is no service with name %s", name)
+		return fmt.Errorf("there is no tracked service with name %s", name)
 	}
 
 	service := m.services[name]
@@ -159,7 +162,7 @@ func (m *manager) Stop(name string) error {
 	// cancel service context.
 	// return
 	if _, ok := m.services[name]; !ok {
-		return fmt.Errorf("there is no service with name %s", name)
+		return fmt.Errorf("there is no tracked service with name %s", name)
 	}
 
 	service := m.services[name]
@@ -307,7 +310,7 @@ func (m *manager) startIfEligible(serviceName string) {
 	}
 }
 
-func generateService(service loader.Service) Service {
+func generateService(service loader.Service) *Service {
 	stdout := Stdout{
 		File:   os.Stdout,
 		Prefix: fmt.Sprintf("[+]%s: ", service.Name),
@@ -338,7 +341,7 @@ func generateService(service loader.Service) Service {
 		startSignal:  make(chan bool),
 		deleteSignal: make(chan bool),
 	}
-	return newService
+	return &newService
 }
 
 func (m *manager) addToGraph(service loader.Service) error {

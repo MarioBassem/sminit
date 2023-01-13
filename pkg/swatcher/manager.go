@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"time"
@@ -13,26 +12,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-var (
-	sminitLog     = log.New(os.Stdout, "[+]sminit:", 0)
-	sminitLogFail = log.New(os.Stdout, "[-]sminit:", 0)
-)
-
-// Manager handles service manipulation for the swatcher.
-type Manager interface {
-	// Add adds a new service to the list of services tracked by the manager
-	Add(service ServiceOptions) error
-	// Delete deletes a services with the given name from the list of services tracked by the manager
-	Delete(name string) error
-	// Start starts a services that is already tracked by the manager.
-	Start(name string) error
-	// Stop stops a service that is already tracked by the manager.
-	Stop(name string) error
-	// List lists all services tracked by the manager.
-	List() []ServiceShort
-}
-
-type manager struct {
+// Manager handles service manipulation
+type Manager struct {
 	services map[string]*Service
 }
 
@@ -65,25 +46,25 @@ type Service struct {
 	stderr      *Stderr
 }
 
-func NewManager(loadedServices map[string]ServiceOptions) (Manager, error) {
+func NewManager(serviceOptions map[string]ServiceOptions) (Manager, error) {
 	// generate map[string]Service
 	// fire go routine for each service
 	// services that have no parents should receive a start signal
 	// return
 
 	services := map[string]*Service{}
-	manager := manager{
+	manager := Manager{
 		services: services,
 	}
-	for name, service := range loadedServices {
+	for name, service := range serviceOptions {
 		newService := generateService(service)
 		manager.services[name] = newService
 	}
 
-	for _, service := range loadedServices {
+	for _, service := range serviceOptions {
 		err := manager.addToGraph(service)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to modify service graph")
+			return Manager{}, errors.Wrap(err, "failed to modify service graph")
 		}
 	}
 
@@ -94,20 +75,21 @@ func NewManager(loadedServices map[string]ServiceOptions) (Manager, error) {
 		}
 	}
 
-	return &manager, nil
+	return manager, nil
 }
 
-func (m *manager) Add(service ServiceOptions) error {
+// Add adds a new service to the list of services tracked by the manager
+func (m *Manager) Add(opt ServiceOptions) error {
 	// generate Service struct
 	// fire go routine for service
 	// check if all parents are in Running or Successful state, if true, send a start signal for this service
 	// return
-	if _, ok := m.services[service.Name]; ok {
-		return fmt.Errorf("failed to add %s. a service with the same name is already tracked.", service.Name)
+	if _, ok := m.services[opt.Name]; ok {
+		return fmt.Errorf("failed to add %s. a service with the same name is already tracked.", opt.Name)
 	}
-	newService := generateService(service)
+	newService := generateService(opt)
 	m.services[newService.name] = newService
-	err := m.addToGraph(service)
+	err := m.addToGraph(opt)
 	if err != nil {
 		return errors.Wrap(err, "failed to modify service graph")
 	}
@@ -118,7 +100,8 @@ func (m *manager) Add(service ServiceOptions) error {
 	return nil
 }
 
-func (m *manager) Delete(name string) error {
+// Delete deletes a services with the given name from the list of services tracked by the manager
+func (m *Manager) Delete(name string) error {
 	// cancel service context
 	// send delete signal
 	// remove from service map, and from graph
@@ -141,7 +124,8 @@ func (m *manager) Delete(name string) error {
 	return nil
 }
 
-func (m *manager) Start(name string) error {
+// Start starts a services that is already tracked by the manager.
+func (m *Manager) Start(name string) error {
 	// check parents' statuses of service
 	// if all are running or successful, send start signal
 	// return
@@ -157,7 +141,8 @@ func (m *manager) Start(name string) error {
 	return nil
 }
 
-func (m *manager) Stop(name string) error {
+// Stop stops a service that is already tracked by the manager.
+func (m *Manager) Stop(name string) error {
 	// cancel service context.
 	// return
 	if _, ok := m.services[name]; !ok {
@@ -169,7 +154,8 @@ func (m *manager) Stop(name string) error {
 	return nil
 }
 
-func (m *manager) List() []ServiceShort {
+// List lists all services tracked by the manager.
+func (m *Manager) List() []ServiceShort {
 	// list all services with their statuses
 	// return
 	ret := []ServiceShort{}
@@ -187,7 +173,7 @@ type ServiceShort struct {
 	Status Status
 }
 
-func (m *manager) serviceRoutine(name string) {
+func (m *Manager) serviceRoutine(name string) {
 	// watch for two signals: start and delete
 	// start:
 	//		continously start command
@@ -223,7 +209,7 @@ func (m *manager) serviceRoutine(name string) {
 
 					err := cmd.Start()
 					if err != nil {
-						sminitLogFail.Printf("error while starting process %s. %s", service.name, err.Error())
+						SminitLogFail.Printf("error while starting process %s. %s", service.name, err.Error())
 						return errors.New("restarting service")
 					}
 					m.changeStatus(service.name, Started)
@@ -234,7 +220,7 @@ func (m *manager) serviceRoutine(name string) {
 
 					err = cmd.Wait()
 					if err != nil {
-						sminitLogFail.Printf("error while running process %s. %s", service.name, err.Error())
+						SminitLogFail.Printf("error while running process %s. %s", service.name, err.Error())
 						return errors.New("restarting service")
 					} else {
 						m.changeStatus(service.name, Successful)
@@ -247,7 +233,7 @@ func (m *manager) serviceRoutine(name string) {
 				}
 			}, NewExponentialBackOff())
 
-			sminitLog.Print(err)
+			SminitLog.Print(err)
 
 			if service.oneShot && service.status == Successful {
 				return
@@ -282,7 +268,7 @@ func isHealthy(service *Service) bool {
 	}
 }
 
-func (m *manager) changeStatus(serviceName string, newStatus Status) {
+func (m *Manager) changeStatus(serviceName string, newStatus Status) {
 	// change status of service
 	// check if dependent services are eligible to be run
 	m.services[serviceName].status = newStatus
@@ -291,7 +277,7 @@ func (m *manager) changeStatus(serviceName string, newStatus Status) {
 	}
 }
 
-func (m *manager) startIfEligible(serviceName string) {
+func (m *Manager) startIfEligible(serviceName string) {
 	service := m.services[serviceName]
 
 	if service.status == Running || service.status == Started || service.status == Successful {
@@ -343,7 +329,7 @@ func generateService(service ServiceOptions) *Service {
 	return &newService
 }
 
-func (m *manager) addToGraph(service ServiceOptions) error {
+func (m *Manager) addToGraph(service ServiceOptions) error {
 	for _, parent := range service.After {
 		if _, ok := m.services[parent]; !ok {
 			return fmt.Errorf("service %s does not exist", parent)

@@ -16,7 +16,8 @@ func (s *Swatcher) Start() {
 	for {
 		conn, err := s.Listener.Accept()
 		if err != nil {
-			SminitLogFail.Fatalf("failed to accept connection. %s", err.Error())
+			SminitLogFail.Printf("failed to accept connection. %s", err.Error())
+			continue
 		}
 		go func(conn net.Conn) {
 			defer conn.Close()

@@ -1,6 +1,6 @@
 module github.com/mariobassem/sminit-go
 
-go 1.19
+go 1.18
 
 require (
 	github.com/cenkalti/backoff v2.2.1+incompatible

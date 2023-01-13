@@ -1,17 +1,16 @@
-package manager
+package swatch
 
 import (
 	"log"
 	"testing"
 	"time"
 
-	"github.com/mariobassem/sminit-go/loader"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestManager(t *testing.T) {
 	t.Run("simple test", func(t *testing.T) {
-		loadedServices := map[string]loader.Service{
+		loadedServices := map[string]ServiceOptions{
 			"s1": {
 				Name:        "s1",
 				Cmd:         "echo mario",
@@ -33,7 +32,7 @@ func TestManager(t *testing.T) {
 		assert.NoError(t, err)
 		time.Sleep(5 * time.Second)
 		log.Print(manager.List())
-		addService := loader.Service{
+		addService := ServiceOptions{
 			Name:  "s3",
 			Cmd:   "echo gerges",
 			Log:   "stdout",

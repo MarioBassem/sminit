@@ -1,4 +1,4 @@
-package swatcher
+package swatch
 
 import (
 	"fmt"
@@ -10,13 +10,11 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/mariobassem/sminit-go/loader"
-	"github.com/mariobassem/sminit-go/manager"
 	"github.com/pkg/errors"
 )
 
 type Swatcher struct {
-	Manager  manager.Manager
+	Manager  Manager
 	Listener net.Listener
 }
 
@@ -36,7 +34,7 @@ var (
 func Swatch() error {
 	sigs := make(chan os.Signal, 1)
 
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGQUIT)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
 	go func() {
 		<-sigs
@@ -48,7 +46,7 @@ func Swatch() error {
 	if err != nil {
 		return errors.Wrap(err, "failed to create a new Swatcher")
 	}
-	swatcher.StartServer()
+	swatcher.Start()
 
 	return nil
 
@@ -73,17 +71,17 @@ func NewSwatcher() (Swatcher, error) {
 		return Swatcher{}, errors.Wrap(err, "couldn't create swatch pid file")
 	}
 
-	listener, err := createSwatchSocket()
+	listener, err := listen()
 	if err != nil {
 		return Swatcher{}, errors.Wrap(err, "couldn't create swatch socket")
 	}
 
-	services, err := loader.LoadAll(ServiceDefinitionDir)
+	services, err := LoadAll(ServiceDefinitionDir)
 	if err != nil {
 		return Swatcher{}, err
 	}
 
-	manager, err := manager.NewManager(services)
+	manager, err := NewManager(services)
 	if err != nil {
 		return Swatcher{}, err
 	}
@@ -124,7 +122,7 @@ func createSwatchPidFile() error {
 	return nil
 }
 
-func createSwatchSocket() (net.Listener, error) {
+func listen() (net.Listener, error) {
 	listener, err := net.Listen("unix", SwatchSocketPath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create a listener on socket %s", SwatchSocketPath)
@@ -136,10 +134,10 @@ func createSwatchSocket() (net.Listener, error) {
 func CleanUp() {
 	err := os.RemoveAll(SminitRunDir)
 	if err != nil {
-		SminitLogFail.Printf("error while removing %s. %s", SminitRunDir, err.Error())
+		SminitLogFail.Printf("error while removing %s, you will have to remove it manually. %s", SminitRunDir, err.Error())
 	}
-	err = os.Remove("/run/sminit.log")
+	err = os.Remove(SminitLogPath)
 	if err != nil {
-		SminitLogFail.Printf("error while removing %s. %s", SminitLogPath, err.Error())
+		SminitLogFail.Printf("error while removing %s, you will have to remove it manually. %s", SminitLogPath, err.Error())
 	}
 }

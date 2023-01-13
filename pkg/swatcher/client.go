@@ -1,4 +1,4 @@
-package swatcher
+package swatch
 
 import (
 	"encoding/json"

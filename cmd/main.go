@@ -6,8 +6,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/mariobassem/sminit-go/manager"
-	"github.com/mariobassem/sminit-go/swatcher"
+	swatch "github.com/mariobassem/sminit-go/pkg/swatcher"
 	"github.com/nxadm/tail"
 	"github.com/sevlyar/go-daemon"
 	"github.com/spf13/cobra"
@@ -24,7 +23,7 @@ func main() {
 	var swatchCmd = &cobra.Command{
 		Use: "swatch",
 		Run: func(cmd *cobra.Command, args []string) {
-			cntxt := &daemon.Context{
+			ctx := &daemon.Context{
 				// PidFileName: "sample2.pid",
 				// PidFilePerm: 0644,
 				// LogFileName: "sample2.log",
@@ -35,20 +34,20 @@ func main() {
 				LogFileName: "/run/sminit.log",
 			}
 
-			d, err := cntxt.Reborn()
+			d, err := ctx.Reborn()
 			if err != nil {
 				log.Fatal("Unable to run: ", err)
 			}
 			if d != nil {
 				return
 			}
-			defer cntxt.Release()
+			defer ctx.Release()
 
-			err = swatcher.Swatch()
+			err = swatch.Swatch()
 			if err != nil {
-				swatcher.SminitLogFail.Printf("error while executing Swatch. %s", err.Error())
+				swatch.SminitLogFail.Printf("error while executing Swatch. %s", err.Error())
 			}
-			defer swatcher.CleanUp()
+			defer swatch.CleanUp()
 		},
 		Short: "Start a process that starts and watches all services defined in /etc/sminit",
 		Args:  cobra.ExactArgs(0),
@@ -57,7 +56,7 @@ func main() {
 	var startCmd = &cobra.Command{
 		Use: "start",
 		Run: func(cmd *cobra.Command, args []string) {
-			client, err := swatcher.NewClient()
+			client, err := swatch.NewClient()
 			if err != nil {
 				panic(err)
 			}
@@ -83,7 +82,7 @@ func main() {
 	var listCmd = &cobra.Command{
 		Use: "list",
 		Run: func(cmd *cobra.Command, args []string) {
-			client, err := swatcher.NewClient()
+			client, err := swatch.NewClient()
 			if err != nil {
 				panic(err)
 			}
@@ -100,7 +99,7 @@ func main() {
 			if !message.Success {
 				log.Fatalf("failure: %s", string(message.Content))
 			} else {
-				services := make([]manager.ServiceShort, 10)
+				services := make([]swatch.ServiceShort, 10)
 				err := json.Unmarshal(message.Content, &services)
 				if err != nil {
 					panic(err)
@@ -115,7 +114,7 @@ func main() {
 	var addCmd = &cobra.Command{
 		Use: "add [service_name]",
 		Run: func(cmd *cobra.Command, args []string) {
-			client, err := swatcher.NewClient()
+			client, err := swatch.NewClient()
 			if err != nil {
 				panic(err)
 			}
@@ -139,7 +138,7 @@ func main() {
 	var deleteCmd = &cobra.Command{
 		Use: "delete [service_name]",
 		Run: func(cmd *cobra.Command, args []string) {
-			client, err := swatcher.NewClient()
+			client, err := swatch.NewClient()
 			if err != nil {
 				panic(err)
 			}
@@ -163,7 +162,7 @@ func main() {
 	var stopCmd = &cobra.Command{
 		Use: "stop [service_name]",
 		Run: func(cmd *cobra.Command, args []string) {
-			client, err := swatcher.NewClient()
+			client, err := swatch.NewClient()
 			if err != nil {
 				panic(err)
 			}
@@ -188,7 +187,7 @@ func main() {
 		Use: "log",
 		Run: func(cmd *cobra.Command, args []string) {
 
-			t, err := tail.TailFile(swatcher.SminitLogPath, tail.Config{Follow: true})
+			t, err := tail.TailFile(swatch.SminitLogPath, tail.Config{Follow: true})
 			if err != nil {
 				panic(err)
 			}
@@ -207,5 +206,5 @@ func main() {
 	rootCmd.AddCommand(stopCmd)
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(logCmd)
-	rootCmd.Execute()
+	_ = rootCmd.Execute()
 }

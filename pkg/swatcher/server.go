@@ -1,12 +1,10 @@
-package swatcher
+package swatch
 
 import (
 	"encoding/json"
 	"net"
 	"path"
 	"strings"
-
-	"github.com/mariobassem/sminit-go/loader"
 )
 
 type Message struct {
@@ -14,7 +12,7 @@ type Message struct {
 	Content []byte
 }
 
-func (s *Swatcher) StartServer() {
+func (s *Swatcher) Start() {
 	for {
 		conn, err := s.Listener.Accept()
 		if err != nil {
@@ -43,7 +41,6 @@ func (s *Swatcher) StartServer() {
 			if errWrite != nil {
 				SminitLogFail.Print(errWrite)
 			}
-			return
 
 		}(conn)
 	}
@@ -76,7 +73,7 @@ func (s *Swatcher) handleAdd(args []string) Message {
 	serviceName := args[0]
 	fullName := strings.Join([]string{serviceName, ".yaml"}, "")
 	path := path.Join(ServiceDefinitionDir, fullName)
-	service, err := loader.Load(path, serviceName)
+	service, err := Load(path, serviceName)
 	if err != nil {
 		return Message{
 			Success: false,

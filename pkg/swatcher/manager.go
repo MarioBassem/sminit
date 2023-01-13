@@ -1,4 +1,4 @@
-package manager
+package swatch
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
-	"github.com/mariobassem/sminit-go/loader"
 	"github.com/pkg/errors"
 )
 
@@ -22,7 +21,7 @@ var (
 // Manager handles service manipulation for the swatcher.
 type Manager interface {
 	// Add adds a new service to the list of services tracked by the manager
-	Add(service loader.Service) error
+	Add(service ServiceOptions) error
 	// Delete deletes a services with the given name from the list of services tracked by the manager
 	Delete(name string) error
 	// Start starts a services that is already tracked by the manager.
@@ -60,18 +59,18 @@ type Service struct {
 	healthCheck string
 	oneShot     bool
 	cmdStr      string
-	cmd         *exec.Cmd
 	context     context.Context
 	cancel      context.CancelFunc
 	stdout      *Stdout
 	stderr      *Stderr
 }
 
-func NewManager(loadedServices map[string]loader.Service) (Manager, error) {
+func NewManager(loadedServices map[string]ServiceOptions) (Manager, error) {
 	// generate map[string]Service
 	// fire go routine for each service
 	// services that have no parents should receive a start signal
 	// return
+
 	services := map[string]*Service{}
 	manager := manager{
 		services: services,
@@ -98,7 +97,7 @@ func NewManager(loadedServices map[string]loader.Service) (Manager, error) {
 	return &manager, nil
 }
 
-func (m *manager) Add(service loader.Service) error {
+func (m *manager) Add(service ServiceOptions) error {
 	// generate Service struct
 	// fire go routine for service
 	// check if all parents are in Running or Successful state, if true, send a start signal for this service
@@ -239,7 +238,7 @@ func (m *manager) serviceRoutine(name string) {
 						return errors.New("restarting service")
 					} else {
 						m.changeStatus(service.name, Successful)
-						if service.oneShot == true {
+						if service.oneShot {
 							return backoff.Permanent(fmt.Errorf("service %s has finished.", service.name))
 						}
 					}
@@ -250,7 +249,7 @@ func (m *manager) serviceRoutine(name string) {
 
 			sminitLog.Print(err)
 
-			if service.oneShot == true && service.status == Successful {
+			if service.oneShot && service.status == Successful {
 				return
 			}
 
@@ -310,7 +309,7 @@ func (m *manager) startIfEligible(serviceName string) {
 	}
 }
 
-func generateService(service loader.Service) *Service {
+func generateService(service ServiceOptions) *Service {
 	stdout := Stdout{
 		File:   os.Stdout,
 		Prefix: fmt.Sprintf("[+]%s: ", service.Name),
@@ -344,7 +343,7 @@ func generateService(service loader.Service) *Service {
 	return &newService
 }
 
-func (m *manager) addToGraph(service loader.Service) error {
+func (m *manager) addToGraph(service ServiceOptions) error {
 	for _, parent := range service.After {
 		if _, ok := m.services[parent]; !ok {
 			return fmt.Errorf("service %s does not exist", parent)

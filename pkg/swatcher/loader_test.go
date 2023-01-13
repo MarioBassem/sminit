@@ -1,4 +1,4 @@
-package loader
+package swatch
 
 import (
 	"os"
@@ -14,7 +14,7 @@ func TestLoader(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	t.Run("load all", func(t *testing.T) {
-		want := map[string]Service{
+		want := map[string]ServiceOptions{
 			"s1": {
 				Name:        "s1",
 				Cmd:         "echo hi",
@@ -56,7 +56,7 @@ func TestLoader(t *testing.T) {
 	})
 
 	t.Run("load one", func(t *testing.T) {
-		want := map[string]Service{
+		want := map[string]ServiceOptions{
 			"s1": {
 				Name:        "s1",
 				Cmd:         "echo hi",
@@ -70,23 +70,23 @@ func TestLoader(t *testing.T) {
 		err := WriteServices(tmpDir, want)
 		assert.NoError(t, err)
 
-		service, err := Load(tmpDir, "s1")
+		serviceOptions, err := Load(tmpDir, "s1")
 		assert.NoError(t, err)
-		assert.Equal(t, want["s1"], service)
+		assert.Equal(t, want["s1"], serviceOptions)
 	})
 }
 
-func WriteServices(dir string, services map[string]Service) error {
-	for _, service := range services {
-		path := path.Join(dir, service.Name)
+func WriteServices(dir string, serviceOptionsMap map[string]ServiceOptions) error {
+	for _, opt := range serviceOptionsMap {
+		path := path.Join(dir, opt.Name)
 		file, err := os.Create(path)
 		if err != nil {
-			return errors.Wrapf(err, "couldn't create definition file for service %s", service.Name)
+			return errors.Wrapf(err, "couldn't create definition file for service %s", opt.Name)
 		}
 
-		bytes, err := yaml.Marshal(service)
+		bytes, err := yaml.Marshal(opt)
 		if err != nil {
-			return errors.Wrapf(err, "couldn't marshal service %s to bytes", service.Name)
+			return errors.Wrapf(err, "couldn't marshal service %s to bytes", opt.Name)
 		}
 
 		_, err = file.Write(bytes)

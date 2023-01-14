@@ -2,6 +2,7 @@ package swatch
 
 import (
 	"context"
+	"strings"
 
 	"fmt"
 	"os"
@@ -204,8 +205,8 @@ func (m *Manager) serviceRoutine(name string) {
 					return backoff.Permanent(fmt.Errorf("service %s was stopped", service.Name))
 
 				default:
-
-					cmd := exec.CommandContext(ctx, "bash", "-c", service.cmdStr)
+					splittedCmd := strings.Split(service.cmdStr, " ")
+					cmd := exec.CommandContext(ctx, splittedCmd[0], splittedCmd[1:]...)
 					if service.log == "stdout" {
 						cmd.Stdout = service.stdout
 						cmd.Stderr = service.stderr
@@ -274,7 +275,8 @@ func isHealthy(ctx context.Context, service *Service) bool {
 		case <-ctx.Done():
 			return backoff.Permanent(errors.New("context canceled"))
 		default:
-			cmd := exec.CommandContext(ctx, "bash", "-c", service.healthCheck)
+			splittedCmd := strings.Split(service.healthCheck, " ")
+			cmd := exec.CommandContext(ctx, splittedCmd[0], splittedCmd[1:]...)
 			err := cmd.Run()
 			if err == nil {
 				healthy = true

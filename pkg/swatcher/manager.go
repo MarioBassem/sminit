@@ -28,10 +28,11 @@ const (
 )
 
 type Service struct {
-	name         string
+	Name   string
+	Status Status
+
 	startSignal  chan bool
 	deleteSignal chan bool
-	status       Status
 	// children are services that depend on this service.
 	children map[string]bool
 	// parents are services that this service depend on.
@@ -94,14 +95,14 @@ func (m *Manager) Add(opt ServiceOptions) error {
 		return fmt.Errorf("failed to add %s. a service with the same name is already tracked.", opt.Name)
 	}
 	newService := generateService(opt)
-	m.services[newService.name] = newService
+	m.services[newService.Name] = newService
 	err := m.addToGraph(opt)
 	if err != nil {
 		return errors.Wrap(err, "failed to modify service graph")
 	}
 
-	go m.serviceRoutine(newService.name)
-	m.startIfEligible(newService.name)
+	go m.serviceRoutine(newService.Name)
+	m.startIfEligible(newService.Name)
 
 	return nil
 }
@@ -140,8 +141,8 @@ func (m *Manager) Start(name string) error {
 	}
 
 	service := m.services[name]
-	if service.status == Started || service.status == Running || service.status == Successful {
-		return fmt.Errorf("service %s status is %s", name, service.status)
+	if service.Status == Started || service.Status == Running || service.Status == Successful {
+		return fmt.Errorf("service %s status is %s", name, service.Status)
 	}
 	m.startIfEligible(name)
 	return nil
@@ -161,22 +162,14 @@ func (m *Manager) Stop(name string) error {
 }
 
 // List lists all services tracked by the manager.
-func (m *Manager) List() []ServiceShort {
+func (m *Manager) List() []Service {
 	// list all services with their statuses
 	// return
-	ret := make([]ServiceShort, 0)
-	for name, service := range m.services {
-		ret = append(ret, ServiceShort{
-			Name:   name,
-			Status: service.status,
-		})
+	ret := make([]Service, 0)
+	for _, service := range m.services {
+		ret = append(ret, *service)
 	}
 	return ret
-}
-
-type ServiceShort struct {
-	Name   string
-	Status Status
 }
 
 func (m *Manager) serviceRoutine(name string) {
@@ -204,7 +197,7 @@ func (m *Manager) serviceRoutine(name string) {
 
 				select {
 				case <-service.context.Done():
-					return backoff.Permanent(fmt.Errorf("service %s was stopped", service.name))
+					return backoff.Permanent(fmt.Errorf("service %s was stopped", service.Name))
 				default:
 
 					cmd := exec.CommandContext(service.context, "bash", "-c", service.cmdStr)
@@ -215,23 +208,23 @@ func (m *Manager) serviceRoutine(name string) {
 
 					err := cmd.Start()
 					if err != nil {
-						SminitLogFail.Printf("error while starting process %s. %s", service.name, err.Error())
+						SminitLogFail.Printf("error while starting process %s. %s", service.Name, err.Error())
 						return errors.New("restarting service")
 					}
-					m.changeStatus(service.name, Started)
+					m.changeStatus(service.Name, Started)
 
 					if isHealthy(service) {
-						m.changeStatus(service.name, Running)
+						m.changeStatus(service.Name, Running)
 					}
 
 					err = cmd.Wait()
 					if err != nil {
-						SminitLogFail.Printf("error while running process %s. %s", service.name, err.Error())
+						SminitLogFail.Printf("error while running process %s. %s", service.Name, err.Error())
 						return errors.New("restarting service")
 					} else {
-						m.changeStatus(service.name, Successful)
+						m.changeStatus(service.Name, Successful)
 						if service.oneShot {
-							return backoff.Permanent(fmt.Errorf("service %s has finished.", service.name))
+							return backoff.Permanent(fmt.Errorf("service %s has finished.", service.Name))
 						}
 					}
 
@@ -241,11 +234,11 @@ func (m *Manager) serviceRoutine(name string) {
 
 			SminitLog.Print(err)
 
-			if service.oneShot && service.status == Successful {
+			if service.oneShot && service.Status == Successful {
 				return
 			}
 
-			m.changeStatus(service.name, Stopped)
+			m.changeStatus(service.Name, Stopped)
 
 			context, cancel := context.WithCancel(context.Background())
 			service.context = context
@@ -277,7 +270,7 @@ func isHealthy(service *Service) bool {
 func (m *Manager) changeStatus(serviceName string, newStatus Status) {
 	// change status of service
 	// check if dependent services are eligible to be run
-	m.services[serviceName].status = newStatus
+	m.services[serviceName].Status = newStatus
 	for child := range m.services[serviceName].children {
 		m.startIfEligible(child)
 	}
@@ -286,12 +279,12 @@ func (m *Manager) changeStatus(serviceName string, newStatus Status) {
 func (m *Manager) startIfEligible(serviceName string) {
 	service := m.services[serviceName]
 
-	if service.status == Running || service.status == Started || service.status == Successful {
+	if service.Status == Running || service.Status == Started || service.Status == Successful {
 		return
 	}
 	startSignal := true
 	for parent := range service.parents {
-		if m.services[parent].status == Pending || m.services[parent].status == Stopped {
+		if m.services[parent].Status == Pending || m.services[parent].Status == Stopped {
 			startSignal = false
 			break
 		}
@@ -317,8 +310,8 @@ func generateService(service ServiceOptions) *Service {
 	}
 
 	newService := Service{
-		name:         service.Name,
-		status:       Pending,
+		Name:         service.Name,
+		Status:       Pending,
 		log:          service.Log,
 		healthCheck:  healthCheck,
 		cmdStr:       service.Cmd,

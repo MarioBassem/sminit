@@ -99,7 +99,7 @@ func main() {
 			if !message.Success {
 				log.Fatalf("failure: %s", string(message.Content))
 			} else {
-				services := make([]swatch.ServiceShort, 10)
+				services := make([]swatch.Service, 10)
 				err := json.Unmarshal(message.Content, &services)
 				if err != nil {
 					panic(err)

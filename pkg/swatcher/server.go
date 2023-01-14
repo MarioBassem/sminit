@@ -50,17 +50,19 @@ func (s *Swatcher) Start() {
 func (s *Swatcher) execute(splitStr []string) Message {
 	cmd := splitStr[0]
 	var message Message
-	if cmd == "add" {
+
+	switch cmd {
+	case "add":
 		message = s.handleAdd(splitStr[1:])
-	} else if cmd == "delete" {
+	case "delete":
 		message = s.handleDelete(splitStr[1:])
-	} else if cmd == "start" {
+	case "start":
 		message = s.handleStart(splitStr[1:])
-	} else if cmd == "stop" {
+	case "stop":
 		message = s.handleStop(splitStr[1:])
-	} else if cmd == "list" {
+	case "list":
 		message = s.handleList()
-	} else {
+	default:
 		message = Message{
 			Success: false,
 			Content: []byte("wrong parametrs"),

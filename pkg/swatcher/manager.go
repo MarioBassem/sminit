@@ -46,36 +46,42 @@ type Service struct {
 	stderr      *Stderr
 }
 
+// NewManager creates a new Manager struct and populates it with services generated from provided serviceOptions
 func NewManager(serviceOptions map[string]ServiceOptions) (Manager, error) {
-	// generate map[string]Service
-	// fire go routine for each service
-	// services that have no parents should receive a start signal
-	// return
-
-	services := map[string]*Service{}
 	manager := Manager{
-		services: services,
-	}
-	for name, service := range serviceOptions {
-		newService := generateService(service)
-		manager.services[name] = newService
+		services: make(map[string]*Service),
 	}
 
-	for _, service := range serviceOptions {
-		err := manager.addToGraph(service)
-		if err != nil {
-			return Manager{}, errors.Wrap(err, "failed to modify service graph")
-		}
-	}
-
-	for name, service := range manager.services {
-		go manager.serviceRoutine(name)
-		if len(service.parents) == 0 {
-			service.startSignal <- true
-		}
+	err := manager.populateServices(serviceOptions)
+	if err != nil {
+		return Manager{}, errors.Wrap(err, "failed to populate manager with services")
 	}
 
 	return manager, nil
+}
+
+func (m *Manager) populateServices(serviceOptions map[string]ServiceOptions) error {
+	for name, opts := range serviceOptions {
+		newService := generateService(opts)
+		m.services[name] = newService
+	}
+
+	for name, opts := range serviceOptions {
+		err := m.addToGraph(opts)
+		if err != nil {
+			return errors.Wrapf(err, "failed to add service %s to graph", name)
+		}
+	}
+
+	return nil
+}
+
+// FireServices is responsible for starting a go routine for each service, and starting it if eligible
+func (m *Manager) FireServices() {
+	for name := range m.services {
+		go m.serviceRoutine(name)
+		m.startIfEligible(name)
+	}
 }
 
 // Add adds a new service to the list of services tracked by the manager
@@ -158,7 +164,7 @@ func (m *Manager) Stop(name string) error {
 func (m *Manager) List() []ServiceShort {
 	// list all services with their statuses
 	// return
-	ret := []ServiceShort{}
+	ret := make([]ServiceShort, 0)
 	for name, service := range m.services {
 		ret = append(ret, ServiceShort{
 			Name:   name,

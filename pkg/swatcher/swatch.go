@@ -42,54 +42,49 @@ func Swatch() error {
 		os.Exit(0)
 	}()
 
-	swatcher, err := NewSwatcher()
-	if err != nil {
-		return errors.Wrap(err, "failed to create a new Swatcher")
-	}
-	swatcher.Start()
-
-	return nil
-
-}
-
-// NewSwatcher creates a new Swatcher, it should return an error if an instance of Swatcher is already running.
-func NewSwatcher() (Swatcher, error) {
 	pid, err := getRunningInstance()
 	if err == nil {
-		return Swatcher{}, errors.New(fmt.Sprintf("there is a running instance of swatch with pid %d", pid))
+		return errors.New(fmt.Sprintf("there is a running instance of swatch with pid %d", pid))
 	} else if !errors.Is(err, fs.ErrNotExist) {
-		return Swatcher{}, errors.Wrap(err, "unexpected error")
+		return errors.Wrap(err, "unexpected error")
 	}
 
 	err = os.Mkdir(SminitRunDir, fs.ModeDir)
 	if err != nil {
-		return Swatcher{}, errors.Wrapf(err, "couldn't create directory %s", SminitRunDir)
+		return errors.Wrapf(err, "couldn't create directory %s", SminitRunDir)
 	}
 
 	err = createSwatchPidFile()
 	if err != nil {
-		return Swatcher{}, errors.Wrap(err, "couldn't create swatch pid file")
+		return errors.Wrap(err, "couldn't create swatch pid file")
 	}
 
-	listener, err := listen()
+	listener, err := net.Listen("unix", SwatchSocketPath)
 	if err != nil {
-		return Swatcher{}, errors.Wrap(err, "couldn't create swatch socket")
+		return errors.Wrapf(err, "failed to create a listener on socket %s", SwatchSocketPath)
 	}
 
 	services, err := LoadAll(ServiceDefinitionDir)
 	if err != nil {
-		return Swatcher{}, err
+		return err
 	}
 
 	manager, err := NewManager(services)
 	if err != nil {
-		return Swatcher{}, err
+		return err
 	}
 
-	return Swatcher{
-		Listener: listener,
+	manager.FireServices()
+
+	swatcher := Swatcher{
 		Manager:  manager,
-	}, nil
+		Listener: listener,
+	}
+
+	swatcher.Start()
+
+	return nil
+
 }
 
 // getRunningInstance returns the pid of the running instance of swatch.
@@ -120,14 +115,6 @@ func createSwatchPidFile() error {
 	}
 
 	return nil
-}
-
-func listen() (net.Listener, error) {
-	listener, err := net.Listen("unix", SwatchSocketPath)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create a listener on socket %s", SwatchSocketPath)
-	}
-	return listener, nil
 }
 
 // CleanUp should delete /run/sminit directory and /run/sminit.log

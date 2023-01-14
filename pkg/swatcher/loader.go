@@ -27,7 +27,7 @@ func LoadAll(servicesDirPath string) (map[string]ServiceOptions, error) {
 		return nil, errors.Wrapf(err, "couldn't read entries of %s.", servicesDirPath)
 	}
 
-	optionsMap := map[string]ServiceOptions{}
+	optionsMap := make(map[string]ServiceOptions)
 
 	for _, entry := range entries {
 		if !entry.Type().IsRegular() {

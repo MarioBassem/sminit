@@ -264,21 +264,28 @@ func cancellationRoutine(cancel context.CancelFunc, stopSignal chan bool) {
 	}
 }
 
-// this function will return false only if context was cancelled, and true if cmd.Run() returned nil, i.e process is healthy
+// this function will return false only if context was cancelled or backoff timesout, and true if cmd.Run() returned nil, i.e process is healthy
 func isHealthy(ctx context.Context, service *Service) bool {
-	for {
+	exponentialBackoff := NewExponentialBackOff()
+	exponentialBackoff.MaxElapsedTime = time.Minute
+	healthy := false
+	_ = backoff.Retry(func() error {
 		select {
 		case <-ctx.Done():
-			return false
+			return backoff.Permanent(errors.New("context canceled"))
 		default:
 			cmd := exec.CommandContext(ctx, "bash", "-c", service.healthCheck)
 			err := cmd.Run()
 			if err == nil {
-				return true
+				healthy = true
+				return backoff.Permanent(errors.New("health check is successful"))
 			}
-			time.Sleep(time.Millisecond * 500)
+			return errors.New("health check failed")
 		}
-	}
+	}, exponentialBackoff)
+
+	return healthy
+
 }
 
 func (m *Manager) changeStatus(serviceName string, newStatus Status) {

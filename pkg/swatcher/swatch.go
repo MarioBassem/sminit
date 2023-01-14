@@ -42,21 +42,9 @@ func Swatch() error {
 		os.Exit(0)
 	}()
 
-	pid, err := getRunningInstance()
-	if err == nil {
-		return errors.New(fmt.Sprintf("there is a running instance of swatch with pid %d", pid))
-	} else if !errors.Is(err, fs.ErrNotExist) {
-		return errors.Wrap(err, "unexpected error")
-	}
-
-	err = os.Mkdir(SminitRunDir, fs.ModeDir)
+	err := createFilesAndDirs()
 	if err != nil {
-		return errors.Wrapf(err, "could not create directory %s", SminitRunDir)
-	}
-
-	err = createSwatchPidFile()
-	if err != nil {
-		return errors.Wrap(err, "could not create swatch pid file")
+		return errors.Wrap(err, "failed to create required files and directories")
 	}
 
 	listener, err := net.Listen("unix", SwatchSocketPath)
@@ -73,7 +61,6 @@ func Swatch() error {
 	if err != nil {
 		return err
 	}
-
 	manager.FireServices()
 
 	swatcher := Swatcher{
@@ -85,6 +72,26 @@ func Swatch() error {
 
 	return nil
 
+}
+
+func createFilesAndDirs() error {
+	pid, err := getRunningInstance()
+	if err == nil {
+		return errors.New(fmt.Sprintf("there is a running instance of swatch with pid %d", pid))
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return errors.Wrap(err, "unexpected error")
+	}
+
+	err = os.Mkdir(SminitRunDir, fs.ModeDir)
+	if err != nil {
+		return errors.Wrapf(err, "could not create directory %s", SminitRunDir)
+	}
+
+	err = createSwatchPidFile()
+	if err != nil {
+		return errors.Wrap(err, "could not create swatch pid file")
+	}
+	return nil
 }
 
 // getRunningInstance returns the pid of the running instance of swatch.

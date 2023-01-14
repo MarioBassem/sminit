@@ -58,21 +58,21 @@ func main() {
 		Run: func(cmd *cobra.Command, args []string) {
 			client, err := swatch.NewClient()
 			if err != nil {
-				panic(err)
+				swatch.SminitLogFail.Printf("error while creating a new client. %s", err.Error())
 			}
 			writeStr := strings.Join([]string{"start", args[0]}, " ")
 			err = client.Write([]byte(writeStr))
 			if err != nil {
-				panic(err)
+				swatch.SminitLogFail.Printf("error while writing. %s", err.Error())
 			}
 			message, err := client.Read()
 			if err != nil {
-				panic(err)
+				swatch.SminitLogFail.Printf("error while reading returned message. %s", err.Error())
 			}
 			// handle message
 
 			if !message.Success {
-				log.Fatalf("failure: %s", string(message.Content))
+				swatch.SminitLogFail.Printf("failure: %s", string(message.Content))
 			}
 		},
 		Short: "Start a service that is already watched by sminit",
@@ -84,16 +84,16 @@ func main() {
 		Run: func(cmd *cobra.Command, args []string) {
 			client, err := swatch.NewClient()
 			if err != nil {
-				panic(err)
+				swatch.SminitLogFail.Printf("error while creating a new client. %s", err.Error())
 			}
 			writeStr := strings.Join([]string{"list"}, " ")
 			err = client.Write([]byte(writeStr))
 			if err != nil {
-				panic(err)
+				swatch.SminitLogFail.Printf("error while writing. %s", err.Error())
 			}
 			message, err := client.Read()
 			if err != nil {
-				panic(err)
+				swatch.SminitLogFail.Printf("error while reading returned message. %s", err.Error())
 			}
 
 			if !message.Success {
@@ -102,7 +102,7 @@ func main() {
 				services := make([]swatch.Service, 10)
 				err := json.Unmarshal(message.Content, &services)
 				if err != nil {
-					panic(err)
+					swatch.SminitLogFail.Printf("failed to unmarshal message. %s", err.Error())
 				}
 				log.Print(services)
 			}
@@ -116,19 +116,21 @@ func main() {
 		Run: func(cmd *cobra.Command, args []string) {
 			client, err := swatch.NewClient()
 			if err != nil {
-				panic(err)
+				swatch.SminitLogFail.Printf("error while creating a new client. %s", err.Error())
 			}
 			writeStr := strings.Join([]string{"add", args[0]}, " ")
 			err = client.Write([]byte(writeStr))
 			if err != nil {
-				panic(err)
+				swatch.SminitLogFail.Printf("error while writing. %s", err.Error())
 			}
 			message, err := client.Read()
 			if err != nil {
-				panic(err)
+				swatch.SminitLogFail.Printf("error while reading returned message. %s", err.Error())
 			}
+			// handle message
+
 			if !message.Success {
-				log.Fatalf("failure: %s", string(message.Content))
+				swatch.SminitLogFail.Printf("failure: %s", string(message.Content))
 			}
 		},
 		Short: "Add a new service that has a definition file in /etc/sminit to the services watched by sminit",
@@ -140,19 +142,21 @@ func main() {
 		Run: func(cmd *cobra.Command, args []string) {
 			client, err := swatch.NewClient()
 			if err != nil {
-				panic(err)
+				swatch.SminitLogFail.Printf("error while creating a new client. %s", err.Error())
 			}
 			writeStr := strings.Join([]string{"delete", args[0]}, " ")
 			err = client.Write([]byte(writeStr))
 			if err != nil {
-				panic(err)
+				swatch.SminitLogFail.Printf("error while writing. %s", err.Error())
 			}
 			message, err := client.Read()
 			if err != nil {
-				panic(err)
+				swatch.SminitLogFail.Printf("error while reading returned message. %s", err.Error())
 			}
+			// handle message
+
 			if !message.Success {
-				log.Fatalf("failure: %s", string(message.Content))
+				swatch.SminitLogFail.Printf("failure: %s", string(message.Content))
 			}
 		},
 		Short: "Drop a service from the list of services that are being watched by sminit",
@@ -164,19 +168,21 @@ func main() {
 		Run: func(cmd *cobra.Command, args []string) {
 			client, err := swatch.NewClient()
 			if err != nil {
-				panic(err)
+				swatch.SminitLogFail.Printf("error while creating a new client. %s", err.Error())
 			}
 			writeStr := strings.Join([]string{"stop", args[0]}, " ")
 			err = client.Write([]byte(writeStr))
 			if err != nil {
-				panic(err)
+				swatch.SminitLogFail.Printf("error while writing. %s", err.Error())
 			}
 			message, err := client.Read()
 			if err != nil {
-				panic(err)
+				swatch.SminitLogFail.Printf("error while reading returned message. %s", err.Error())
 			}
+			// handle message
+
 			if !message.Success {
-				log.Fatalf("failure: %s", string(message.Content))
+				swatch.SminitLogFail.Printf("failure: %s", string(message.Content))
 			}
 		},
 		Short: "Stop a running service",
@@ -189,7 +195,7 @@ func main() {
 
 			t, err := tail.TailFile(swatch.SminitLogPath, tail.Config{Follow: true})
 			if err != nil {
-				panic(err)
+				swatch.SminitLogFail.Printf("failed to print logs. %s", err.Error())
 			}
 			for line := range t.Lines {
 				fmt.Println(line.Text)

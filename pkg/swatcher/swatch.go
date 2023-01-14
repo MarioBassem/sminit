@@ -51,12 +51,12 @@ func Swatch() error {
 
 	err = os.Mkdir(SminitRunDir, fs.ModeDir)
 	if err != nil {
-		return errors.Wrapf(err, "couldn't create directory %s", SminitRunDir)
+		return errors.Wrapf(err, "could not create directory %s", SminitRunDir)
 	}
 
 	err = createSwatchPidFile()
 	if err != nil {
-		return errors.Wrap(err, "couldn't create swatch pid file")
+		return errors.Wrap(err, "could not create swatch pid file")
 	}
 
 	listener, err := net.Listen("unix", SwatchSocketPath)
@@ -91,12 +91,12 @@ func Swatch() error {
 func getRunningInstance() (pid int, err error) {
 	b, err := os.ReadFile(SwatchPidPath)
 	if err != nil {
-		return 0, errors.Wrap(err, "couldn't get swatch running instance pid")
+		return 0, errors.Wrap(err, "could not get swatch running instance pid")
 	}
 
 	pid, err = strconv.Atoi(string(b))
 	if err != nil {
-		return 0, errors.Wrapf(err, "couldn't convert bytes from %s to int", SwatchPidPath)
+		return 0, errors.Wrapf(err, "could not convert bytes from %s to int", SwatchPidPath)
 	}
 
 	return pid, nil
@@ -105,13 +105,13 @@ func getRunningInstance() (pid int, err error) {
 func createSwatchPidFile() error {
 	f, err := os.Create(SwatchPidPath)
 	if err != nil {
-		return errors.Wrapf(err, "couldn't create %s", SwatchPidPath)
+		return errors.Wrapf(err, "could not create %s", SwatchPidPath)
 	}
 
 	pidBytes := []byte(strconv.FormatInt(int64(os.Getpid()), 10))
 	_, err = f.Write(pidBytes)
 	if err != nil {
-		return errors.Wrapf(err, "couldn't write swatch pid in %s", SwatchPidPath)
+		return errors.Wrapf(err, "could not write swatch pid in %s", SwatchPidPath)
 	}
 
 	return nil
@@ -121,10 +121,10 @@ func createSwatchPidFile() error {
 func CleanUp() {
 	err := os.RemoveAll(SminitRunDir)
 	if err != nil {
-		SminitLogFail.Printf("error while removing %s, you will have to remove it manually. %s", SminitRunDir, err.Error())
+		SminitLogFail.Printf("error while removing %s, you need to remove it manually. %s", SminitRunDir, err.Error())
 	}
 	err = os.Remove(SminitLogPath)
 	if err != nil {
-		SminitLogFail.Printf("error while removing %s, you will have to remove it manually. %s", SminitLogPath, err.Error())
+		SminitLogFail.Printf("error while removing %s, you need to remove it manually. %s", SminitLogPath, err.Error())
 	}
 }

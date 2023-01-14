@@ -81,17 +81,17 @@ func WriteServices(dir string, serviceOptionsMap map[string]ServiceOptions) erro
 		path := path.Join(dir, opt.Name)
 		file, err := os.Create(path)
 		if err != nil {
-			return errors.Wrapf(err, "couldn't create definition file for service %s", opt.Name)
+			return errors.Wrapf(err, "could not create definition file for service %s", opt.Name)
 		}
 
 		bytes, err := yaml.Marshal(opt)
 		if err != nil {
-			return errors.Wrapf(err, "couldn't marshal service %s to bytes", opt.Name)
+			return errors.Wrapf(err, "could not marshal service %s to bytes", opt.Name)
 		}
 
 		_, err = file.Write(bytes)
 		if err != nil {
-			return errors.Wrap(err, "couldn't write bytes")
+			return errors.Wrap(err, "could not write bytes")
 		}
 	}
 	return nil

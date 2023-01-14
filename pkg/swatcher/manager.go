@@ -92,7 +92,7 @@ func (m *Manager) Add(opt ServiceOptions) error {
 	// check if all parents are in Running or Successful state, if true, send a start signal for this service
 	// return
 	if _, ok := m.services[opt.Name]; ok {
-		return fmt.Errorf("failed to add %s. a service with the same name is already tracked.", opt.Name)
+		return fmt.Errorf("failed to add %s. a service with the same name is already tracked", opt.Name)
 	}
 	newService := generateService(opt)
 	m.services[newService.Name] = newService
@@ -224,7 +224,7 @@ func (m *Manager) serviceRoutine(name string) {
 					} else {
 						m.changeStatus(service.Name, Successful)
 						if service.oneShot {
-							return backoff.Permanent(fmt.Errorf("service %s has finished.", service.Name))
+							return backoff.Permanent(fmt.Errorf("service %s has finished", service.Name))
 						}
 					}
 

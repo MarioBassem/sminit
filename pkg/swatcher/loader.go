@@ -10,7 +10,7 @@ import (
 )
 
 type ServiceOptions struct {
-	Name        string
+	Name        string `yaml:"omitempty"`
 	Cmd         string
 	Log         string
 	After       []string
@@ -24,7 +24,7 @@ type ServiceOptions struct {
 func LoadAll(servicesDirPath string) (map[string]ServiceOptions, error) {
 	entries, err := os.ReadDir(servicesDirPath)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not read entries of %s.", servicesDirPath)
+		return nil, errors.Wrapf(err, "could not read entries of %s", servicesDirPath)
 	}
 
 	optionsMap := make(map[string]ServiceOptions)
@@ -57,7 +57,7 @@ func Load(path, serviceName string) (ServiceOptions, error) {
 
 	bytes, err := os.ReadFile(path)
 	if err != nil {
-		return ServiceOptions{}, errors.Wrapf(err, "could not read contents of file %s.", path)
+		return ServiceOptions{}, errors.Wrapf(err, "could not read contents of file %s", path)
 	}
 
 	service := ServiceOptions{
@@ -66,7 +66,7 @@ func Load(path, serviceName string) (ServiceOptions, error) {
 
 	err = yaml.Unmarshal(bytes, &service)
 	if err != nil {
-		return ServiceOptions{}, errors.Wrapf(err, "could not unmarshal contents of file %s.", path)
+		return ServiceOptions{}, errors.Wrapf(err, "could not unmarshal contents of file %s", path)
 	}
 
 	return service, nil

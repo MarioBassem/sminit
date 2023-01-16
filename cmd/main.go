@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
-	"strings"
+	"net/http"
 
 	swatch "github.com/mariobassem/sminit-go/pkg/swatcher"
 	"github.com/nxadm/tail"
@@ -56,24 +58,23 @@ func main() {
 	var startCmd = &cobra.Command{
 		Use: "start",
 		Run: func(cmd *cobra.Command, args []string) {
-			client, err := swatch.NewClient()
-			if err != nil {
-				swatch.SminitLogFail.Printf("error while creating a new client. %s", err.Error())
-			}
-			writeStr := strings.Join([]string{"start", args[0]}, " ")
-			err = client.Write([]byte(writeStr))
-			if err != nil {
-				swatch.SminitLogFail.Printf("error while writing. %s", err.Error())
-			}
-			message, err := client.Read()
-			if err != nil {
-				swatch.SminitLogFail.Printf("error while reading returned message. %s", err.Error())
-			}
-			// handle message
 
-			if !message.Success {
-				swatch.SminitLogFail.Printf("failure: %s", string(message.Content))
+			response, err := http.Post(fmt.Sprintf("http://%s:%d/start", swatch.Address, swatch.Port), "text", bytes.NewBuffer([]byte(args[0])))
+			if err != nil {
+				log.Fatal(err)
 			}
+			if response.StatusCode == http.StatusOK {
+				return
+			}
+
+			body, err := io.ReadAll(response.Body)
+			if err != nil {
+				log.Fatal(err)
+			}
+			defer response.Body.Close()
+
+			swatch.SminitLogFail.Printf("%s: %s", response.Status, string(body))
+
 		},
 		Short: "Start a service that is already watched by sminit",
 		Args:  cobra.ExactArgs(1),
@@ -82,29 +83,29 @@ func main() {
 	var listCmd = &cobra.Command{
 		Use: "list",
 		Run: func(cmd *cobra.Command, args []string) {
-			client, err := swatch.NewClient()
+			response, err := http.Get(fmt.Sprintf("http://%s:%d/list", swatch.Address, swatch.Port))
 			if err != nil {
-				swatch.SminitLogFail.Printf("error while creating a new client. %s", err.Error())
-			}
-			writeStr := strings.Join([]string{"list"}, " ")
-			err = client.Write([]byte(writeStr))
-			if err != nil {
-				swatch.SminitLogFail.Printf("error while writing. %s", err.Error())
-			}
-			message, err := client.Read()
-			if err != nil {
-				swatch.SminitLogFail.Printf("error while reading returned message. %s", err.Error())
+				log.Fatal(err)
 			}
 
-			if !message.Success {
-				log.Fatalf("failure: %s", string(message.Content))
-			} else {
-				services := make([]swatch.Service, 10)
-				err := json.Unmarshal(message.Content, &services)
-				if err != nil {
-					swatch.SminitLogFail.Printf("failed to unmarshal message. %s", err.Error())
-				}
-				log.Print(services)
+			if response.StatusCode != http.StatusOK {
+				swatch.SminitLogFail.Printf("failure: %s", response.Status)
+				return
+			}
+
+			body, err := io.ReadAll(response.Body)
+			if err != nil {
+				log.Fatal(err)
+			}
+			services := []swatch.Service{}
+			err = json.Unmarshal(body, &services)
+			if err != nil {
+				swatch.SminitLogFail.Printf("failed to unmarshal message content. %s", err.Error())
+				return
+			}
+			swatch.SminitLog.Print("tracked services:")
+			for idx := range services {
+				log.Printf("name: %s, status: %s\n", services[idx].Name, services[idx].Status)
 			}
 		},
 		Short: "List all services that are watched by sminit",
@@ -114,24 +115,21 @@ func main() {
 	var addCmd = &cobra.Command{
 		Use: "add [service_name]",
 		Run: func(cmd *cobra.Command, args []string) {
-			client, err := swatch.NewClient()
+			response, err := http.Post(fmt.Sprintf("http://%s:%d/add", swatch.Address, swatch.Port), "text", bytes.NewBuffer([]byte(args[0])))
 			if err != nil {
-				swatch.SminitLogFail.Printf("error while creating a new client. %s", err.Error())
+				log.Fatal(err)
 			}
-			writeStr := strings.Join([]string{"add", args[0]}, " ")
-			err = client.Write([]byte(writeStr))
-			if err != nil {
-				swatch.SminitLogFail.Printf("error while writing. %s", err.Error())
+			if response.StatusCode == http.StatusOK {
+				return
 			}
-			message, err := client.Read()
-			if err != nil {
-				swatch.SminitLogFail.Printf("error while reading returned message. %s", err.Error())
-			}
-			// handle message
 
-			if !message.Success {
-				swatch.SminitLogFail.Printf("failure: %s", string(message.Content))
+			body, err := io.ReadAll(response.Body)
+			if err != nil {
+				log.Fatal(err)
 			}
+			defer response.Body.Close()
+
+			swatch.SminitLogFail.Printf("%s: %s", response.Status, string(body))
 		},
 		Short: "Add a new service that has a definition file in /etc/sminit to the services watched by sminit",
 		Args:  cobra.ExactArgs(1),
@@ -140,24 +138,21 @@ func main() {
 	var deleteCmd = &cobra.Command{
 		Use: "delete [service_name]",
 		Run: func(cmd *cobra.Command, args []string) {
-			client, err := swatch.NewClient()
+			response, err := http.Post(fmt.Sprintf("http://%s:%d/delete", swatch.Address, swatch.Port), "text", bytes.NewBuffer([]byte(args[0])))
 			if err != nil {
-				swatch.SminitLogFail.Printf("error while creating a new client. %s", err.Error())
+				log.Fatal(err)
 			}
-			writeStr := strings.Join([]string{"delete", args[0]}, " ")
-			err = client.Write([]byte(writeStr))
-			if err != nil {
-				swatch.SminitLogFail.Printf("error while writing. %s", err.Error())
+			if response.StatusCode == http.StatusOK {
+				return
 			}
-			message, err := client.Read()
-			if err != nil {
-				swatch.SminitLogFail.Printf("error while reading returned message. %s", err.Error())
-			}
-			// handle message
 
-			if !message.Success {
-				swatch.SminitLogFail.Printf("failure: %s", string(message.Content))
+			body, err := io.ReadAll(response.Body)
+			if err != nil {
+				log.Fatal(err)
 			}
+			defer response.Body.Close()
+
+			swatch.SminitLogFail.Printf("%s: %s", response.Status, string(body))
 		},
 		Short: "Drop a service from the list of services that are being watched by sminit",
 		Args:  cobra.ExactArgs(1),
@@ -166,24 +161,21 @@ func main() {
 	var stopCmd = &cobra.Command{
 		Use: "stop [service_name]",
 		Run: func(cmd *cobra.Command, args []string) {
-			client, err := swatch.NewClient()
+			response, err := http.Post(fmt.Sprintf("http://%s:%d/stop", swatch.Address, swatch.Port), "text", bytes.NewBuffer([]byte(args[0])))
 			if err != nil {
-				swatch.SminitLogFail.Printf("error while creating a new client. %s", err.Error())
+				log.Fatal(err)
 			}
-			writeStr := strings.Join([]string{"stop", args[0]}, " ")
-			err = client.Write([]byte(writeStr))
-			if err != nil {
-				swatch.SminitLogFail.Printf("error while writing. %s", err.Error())
+			if response.StatusCode == http.StatusOK {
+				return
 			}
-			message, err := client.Read()
-			if err != nil {
-				swatch.SminitLogFail.Printf("error while reading returned message. %s", err.Error())
-			}
-			// handle message
 
-			if !message.Success {
-				swatch.SminitLogFail.Printf("failure: %s", string(message.Content))
+			body, err := io.ReadAll(response.Body)
+			if err != nil {
+				log.Fatal(err)
 			}
+			defer response.Body.Close()
+
+			swatch.SminitLogFail.Printf("%s: %s", response.Status, string(body))
 		},
 		Short: "Stop a running service",
 		Args:  cobra.ExactArgs(1),

@@ -41,7 +41,7 @@ func TestManager(t *testing.T) {
 			Log:   "stdout",
 			After: []string{"s1", "s2"},
 		}
-		err = manager.Add(addService)
+		err = manager.Add(addService.Name)
 		assert.NoError(t, err)
 		log.Print(manager.List())
 		time.Sleep(2 * time.Second)

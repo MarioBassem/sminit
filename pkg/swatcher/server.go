@@ -2,152 +2,81 @@ package swatch
 
 import (
 	"encoding/json"
-	"net"
-	"path"
-	"strings"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
 )
 
-type Message struct {
-	Success bool
-	Content []byte
+var (
+	Address = "127.0.0.1"
+	Port    = 8080
+)
+
+func (s *Swatcher) StartHTTPServer() error {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/start", s.startHandler)
+	mux.HandleFunc("/stop", s.stopHandler)
+	mux.HandleFunc("/add", s.addHandler)
+	mux.HandleFunc("/delete", s.deleteHandler)
+	mux.HandleFunc("/list", s.listHandler)
+	err := http.ListenAndServe(fmt.Sprintf("%s:%d", Address, Port), mux)
+	return err
 }
 
-func (s *Swatcher) Start() {
-	for {
-		conn, err := s.Listener.Accept()
-		if err != nil {
-			SminitLogFail.Printf("failed to accept connection. %s", err.Error())
-			continue
-		}
-		go func(conn net.Conn) {
-			defer conn.Close()
-			buf := make([]byte, 1024)
-
-			n, err := conn.Read(buf)
-			if err != nil {
-				SminitLogFail.Print(err)
-			}
-
-			str := strings.Trim(string(buf[:n]), " \n")
-			splitStr := strings.Split(str, " ")
-
-			message := s.execute(splitStr)
-
-			b, errMarshal := json.Marshal(message)
-			if errMarshal != nil {
-				SminitLogFail.Print(errMarshal)
-			}
-
-			_, errWrite := conn.Write(b)
-			if errWrite != nil {
-				SminitLogFail.Print(errWrite)
-			}
-
-		}(conn)
-	}
+func (s *Swatcher) startHandler(w http.ResponseWriter, r *http.Request) {
+	sminitHandler(w, r, s.Manager.Start)
 }
 
-func (s *Swatcher) execute(splitStr []string) Message {
-	cmd := splitStr[0]
-	var message Message
-
-	switch cmd {
-	case "add":
-		message = s.handleAdd(splitStr[1:])
-	case "delete":
-		message = s.handleDelete(splitStr[1:])
-	case "start":
-		message = s.handleStart(splitStr[1:])
-	case "stop":
-		message = s.handleStop(splitStr[1:])
-	case "list":
-		message = s.handleList()
-	default:
-		message = Message{
-			Success: false,
-			Content: []byte("wrong parametrs"),
-		}
-	}
-
-	return message
+func (s *Swatcher) stopHandler(w http.ResponseWriter, r *http.Request) {
+	sminitHandler(w, r, s.Manager.Stop)
 }
 
-func (s *Swatcher) handleAdd(args []string) Message {
-	serviceName := args[0]
-	fullName := strings.Join([]string{serviceName, ".yaml"}, "")
-	path := path.Join(ServiceDefinitionDir, fullName)
-	service, err := Load(path, serviceName)
-	if err != nil {
-		return Message{
-			Success: false,
-			Content: []byte(err.Error()),
-		}
-	}
-	err = s.Manager.Add(service)
-	if err != nil {
-		return Message{
-			Success: false,
-			Content: []byte(err.Error()),
-		}
-	}
-	return Message{
-		Success: true,
-	}
+func (s *Swatcher) deleteHandler(w http.ResponseWriter, r *http.Request) {
+	sminitHandler(w, r, s.Manager.Delete)
 }
 
-func (s *Swatcher) handleDelete(args []string) Message {
-	serviceName := args[0]
-	err := s.Manager.Delete(serviceName)
-	if err != nil {
-		return Message{
-			Success: false,
-			Content: []byte(err.Error()),
-		}
-	}
-	return Message{
-		Success: true,
-	}
+func (s *Swatcher) addHandler(w http.ResponseWriter, r *http.Request) {
+	sminitHandler(w, r, s.Manager.Add)
 }
 
-func (s *Swatcher) handleStart(args []string) Message {
-	serviceName := args[0]
-	err := s.Manager.Start(serviceName)
-	if err != nil {
-		return Message{
-			Success: false,
-			Content: []byte(err.Error()),
-		}
-	}
-	return Message{
-		Success: true,
-	}
-}
+func (s *Swatcher) listHandler(w http.ResponseWriter, r *http.Request) {
 
-func (s *Swatcher) handleStop(args []string) Message {
-	serviceName := args[0]
-	err := s.Manager.Stop(serviceName)
-	if err != nil {
-		return Message{
-			Success: false,
-			Content: []byte(err.Error()),
-		}
-	}
-	return Message{
-		Success: true,
-	}
-}
-
-func (s *Swatcher) handleList() Message {
 	services := s.Manager.List()
-	b, err := json.Marshal(services)
+	contentBytes, err := json.Marshal(services)
 	if err != nil {
-		return Message{
-			Success: false,
-			Content: []byte(err.Error()),
+		SminitLogFail.Printf("could not marshal services: %+v. %s", services, err.Error())
+		return
+	}
+
+	_, err = w.Write(contentBytes)
+	if err != nil {
+		SminitLogFail.Print(err)
+	}
+}
+
+func sminitHandler(w http.ResponseWriter, r *http.Request, action func(serviceName string) error) {
+	serviceName, err := io.ReadAll(r.Body)
+	if err != nil {
+		SminitLogFail.Printf("could not read body: %s\n", err)
+		return
+	}
+	defer r.Body.Close()
+
+	err = action(string(serviceName))
+
+	switch {
+	case errors.Is(err, ErrBadRequest):
+		w.WriteHeader(400)
+		fallthrough
+	case errors.Is(err, ErrSminitInternalError):
+		w.WriteHeader(500)
+		fallthrough
+	case err != nil:
+		_, err = w.Write([]byte(err.Error()))
+		if err != nil {
+			SminitLogFail.Print(err)
 		}
 	}
-	return Message{
-		Success: true,
-		Content: b,
-	}
+
 }

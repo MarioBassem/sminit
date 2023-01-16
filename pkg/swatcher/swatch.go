@@ -14,7 +14,7 @@ import (
 )
 
 type Swatcher struct {
-	Manager  Manager
+	Manager  *Manager
 	Listener net.Listener
 }
 
@@ -68,7 +68,10 @@ func Swatch() error {
 		Listener: listener,
 	}
 
-	swatcher.Start()
+	err = swatcher.StartHTTPServer()
+	if err != nil {
+		SminitLogFail.Printf("error starting http server: %s", err)
+	}
 
 	return nil
 

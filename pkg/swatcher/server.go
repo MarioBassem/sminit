@@ -13,7 +13,7 @@ var (
 	Port    = 8080
 )
 
-func (s *Swatcher) StartHTTPServer() error {
+func (s *Swatcher) startHTTPServer() error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/start", s.startHandler)
 	mux.HandleFunc("/stop", s.stopHandler)

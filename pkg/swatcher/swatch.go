@@ -16,6 +16,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// Swatcher handles services through the manager, and accepts requests through Listener
 type Swatcher struct {
 	Manager  *Manager
 	Listener net.Listener
@@ -30,6 +31,7 @@ const (
 )
 
 var (
+	// SminitLog is the default logger used in sminit
 	SminitLog = log.Output(zerolog.ConsoleWriter{
 		Out: os.Stdout,
 		FieldsExclude: []string{
@@ -43,6 +45,7 @@ var (
 	}).With().Str("component", "sminit:").Logger()
 )
 
+// Swatch is a daemon process responsible for tracking services, and exposing an http server that accepts requests to manipulate those services
 func Swatch() error {
 	sigs := make(chan os.Signal, 1)
 
@@ -73,14 +76,14 @@ func Swatch() error {
 	if err != nil {
 		return err
 	}
-	manager.FireServices()
+	manager.fireServices()
 
 	swatcher := Swatcher{
 		Manager:  manager,
 		Listener: listener,
 	}
 
-	err = swatcher.StartHTTPServer()
+	err = swatcher.startHTTPServer()
 	if err != nil {
 		SminitLog.Error().Msgf("error starting http server: %s", err)
 	}

@@ -31,7 +31,7 @@ func TestManager(t *testing.T) {
 		manager, err := NewManager(loadedServices)
 		assert.NoError(t, err)
 
-		manager.FireServices()
+		manager.fireServices()
 
 		time.Sleep(5 * time.Second)
 		log.Print(manager.List())

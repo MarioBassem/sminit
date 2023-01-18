@@ -29,6 +29,7 @@ type Manager struct {
 	sync.Mutex
 }
 
+// Status presents service status
 type Status string
 
 const (
@@ -41,6 +42,7 @@ const (
 	Stopped Status = "stopped"
 )
 
+// Service contains all needed information during the lifetime of a service
 type Service struct {
 	Name   string
 	Status Status
@@ -90,8 +92,8 @@ func (m *Manager) populateServices(serviceOptions map[string]ServiceOptions) err
 	return nil
 }
 
-// FireServices is responsible for starting a go routine for each service, and starting it if eligible
-func (m *Manager) FireServices() {
+// fireServices is responsible for starting a go routine for each service, and starting it if eligible
+func (m *Manager) fireServices() {
 	for name := range m.services {
 		go m.serviceRoutine(name)
 		m.startIfEligible(name)
@@ -274,7 +276,7 @@ func (m *Manager) serviceRoutine(name string) {
 
 					return errors.New("restarting service")
 				}
-			}, NewExponentialBackOff())
+			}, newExponentialBackOff())
 
 			SminitLog.Info().Msg(err.Error())
 
@@ -297,7 +299,7 @@ func cancellationRoutine(cancel context.CancelFunc, stopSignal chan bool) {
 
 // this function will return false only if context was cancelled or backoff timesout, and true if cmd.Run() returned nil, i.e process is healthy
 func isHealthy(ctx context.Context, service *Service) bool {
-	exponentialBackoff := NewExponentialBackOff()
+	exponentialBackoff := newExponentialBackOff()
 	exponentialBackoff.MaxElapsedTime = time.Minute
 	healthy := false
 	err := backoff.Retry(func() error {
@@ -421,7 +423,7 @@ func (m *Manager) addToGraph(service ServiceOptions) error {
 	return nil
 }
 
-func NewExponentialBackOff() *backoff.ExponentialBackOff {
+func newExponentialBackOff() *backoff.ExponentialBackOff {
 	b := backoff.ExponentialBackOff{
 		InitialInterval:     backoff.DefaultInitialInterval,
 		RandomizationFactor: backoff.DefaultRandomizationFactor,

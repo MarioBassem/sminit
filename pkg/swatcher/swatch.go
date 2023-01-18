@@ -3,7 +3,8 @@ package swatch
 import (
 	"fmt"
 	"io/fs"
-	"log"
+
+	// "log"
 	"net"
 	"os"
 	"os/signal"
@@ -11,6 +12,8 @@ import (
 	"syscall"
 
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 type Swatcher struct {
@@ -27,8 +30,17 @@ const (
 )
 
 var (
-	SminitLog     = log.New(os.Stdout, "[+]sminit: ", log.Lmsgprefix)
-	SminitLogFail = log.New(os.Stdout, "[-]sminit: ", log.Lmsgprefix)
+	SminitLog = log.Output(zerolog.ConsoleWriter{
+		Out: os.Stdout,
+		FieldsExclude: []string{
+			"component",
+		},
+		PartsOrder: []string{
+			"level",
+			"component",
+			"message",
+		},
+	}).With().Str("component", "sminit:").Logger()
 )
 
 func Swatch() error {
@@ -70,7 +82,7 @@ func Swatch() error {
 
 	err = swatcher.StartHTTPServer()
 	if err != nil {
-		SminitLogFail.Printf("error starting http server: %s", err)
+		SminitLog.Error().Msgf("error starting http server: %s", err)
 	}
 
 	return nil
@@ -131,10 +143,10 @@ func createSwatchPidFile() error {
 func CleanUp() {
 	err := os.RemoveAll(SminitRunDir)
 	if err != nil {
-		SminitLogFail.Printf("error while removing %s, you need to remove it manually. %s", SminitRunDir, err.Error())
+		SminitLog.Error().Msgf("error while removing %s, you need to remove it manually. %s", SminitRunDir, err.Error())
 	}
 	err = os.Remove(SminitLogPath)
 	if err != nil {
-		SminitLogFail.Printf("error while removing %s, you need to remove it manually. %s", SminitLogPath, err.Error())
+		SminitLog.Error().Msgf("error while removing %s, you need to remove it manually. %s", SminitLogPath, err.Error())
 	}
 }

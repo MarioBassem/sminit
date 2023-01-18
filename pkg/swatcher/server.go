@@ -45,20 +45,20 @@ func (s *Swatcher) listHandler(w http.ResponseWriter, r *http.Request) {
 	services := s.Manager.List()
 	contentBytes, err := json.Marshal(services)
 	if err != nil {
-		SminitLogFail.Printf("could not marshal services: %+v. %s", services, err.Error())
+		SminitLog.Error().Msgf("could not marshal services: %+v. %s", services, err.Error())
 		return
 	}
 
 	_, err = w.Write(contentBytes)
 	if err != nil {
-		SminitLogFail.Print(err)
+		SminitLog.Error().Msg(err.Error())
 	}
 }
 
 func sminitHandler(w http.ResponseWriter, r *http.Request, action func(serviceName string) error) {
 	serviceName, err := io.ReadAll(r.Body)
 	if err != nil {
-		SminitLogFail.Printf("could not read body: %s\n", err)
+		SminitLog.Error().Msgf("could not read body: %s\n", err)
 		return
 	}
 	defer r.Body.Close()
@@ -75,7 +75,7 @@ func sminitHandler(w http.ResponseWriter, r *http.Request, action func(serviceNa
 	case err != nil:
 		_, err = w.Write([]byte(err.Error()))
 		if err != nil {
-			SminitLogFail.Print(err)
+			SminitLog.Error().Msg(err.Error())
 		}
 	}
 

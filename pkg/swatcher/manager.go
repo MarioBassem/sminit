@@ -2,6 +2,7 @@ package swatch
 
 import (
 	"context"
+	"io"
 	"path"
 	"strings"
 	"sync"
@@ -13,6 +14,8 @@ import (
 
 	"github.com/cenkalti/backoff"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -48,13 +51,13 @@ type Service struct {
 	// children are services that depend on this service.
 	children map[string]bool
 	// parents are services that this service depend on.
-	parents     map[string]bool
-	log         string
-	healthCheck string
-	oneShot     bool
-	cmdStr      string
-	stdout      *Stdout
-	stderr      *Stderr
+	parents      map[string]bool
+	log          string
+	healthCheck  string
+	oneShot      bool
+	cmdStr       string
+	stdoutLogger io.Writer
+	stderrLogger io.Writer
 }
 
 // NewManager creates a new Manager struct and populates it with services generated from provided serviceOptions
@@ -125,6 +128,8 @@ func (m *Manager) Add(serviceName string) error {
 	go m.serviceRoutine(newService.Name)
 	m.startIfEligible(newService.Name)
 
+	SminitLog.Info().Msgf("service %s is added", serviceName)
+
 	return nil
 }
 
@@ -152,6 +157,7 @@ func (m *Manager) Delete(name string) error {
 		m.startIfEligible(child)
 	}
 	delete(m.services, name)
+	SminitLog.Info().Msgf("service %s is deleted", name)
 	return nil
 }
 
@@ -172,6 +178,7 @@ func (m *Manager) Start(name string) error {
 		return errors.Wrapf(ErrBadRequest, "service %s status is %s", name, service.Status)
 	}
 	m.startIfEligible(name)
+	SminitLog.Info().Msgf("service %s is started", name)
 	return nil
 }
 
@@ -238,13 +245,13 @@ func (m *Manager) serviceRoutine(name string) {
 					splittedCmd := strings.Split(service.cmdStr, " ")
 					cmd := exec.CommandContext(ctx, splittedCmd[0], splittedCmd[1:]...)
 					if service.log == "stdout" {
-						cmd.Stdout = service.stdout
-						cmd.Stderr = service.stderr
+						cmd.Stdout = service.stdoutLogger
+						cmd.Stderr = service.stderrLogger
 					}
 
 					err := cmd.Start()
 					if err != nil {
-						SminitLogFail.Printf("error while starting process %s. %s", service.Name, err.Error())
+						SminitLog.Error().Msgf("error while starting process %s. %s", service.Name, err.Error())
 						return errors.New("restarting service")
 					}
 					m.changeStatus(service.Name, Started)
@@ -255,7 +262,7 @@ func (m *Manager) serviceRoutine(name string) {
 
 					err = cmd.Wait()
 					if err != nil {
-						SminitLogFail.Printf("error while running process %s. %s", service.Name, err.Error())
+						SminitLog.Error().Msgf("error while running process %s. %s", service.Name, err.Error())
 						m.changeStatus(service.Name, Failure)
 						return errors.New("restarting service")
 					} else {
@@ -269,7 +276,7 @@ func (m *Manager) serviceRoutine(name string) {
 				}
 			}, NewExponentialBackOff())
 
-			SminitLog.Print(err)
+			SminitLog.Info().Msg(err.Error())
 
 			if service.oneShot && service.Status == Successful {
 				return
@@ -293,7 +300,7 @@ func isHealthy(ctx context.Context, service *Service) bool {
 	exponentialBackoff := NewExponentialBackOff()
 	exponentialBackoff.MaxElapsedTime = time.Minute
 	healthy := false
-	_ = backoff.Retry(func() error {
+	err := backoff.Retry(func() error {
 		select {
 		case <-ctx.Done():
 			return backoff.Permanent(errors.New("context canceled"))
@@ -308,7 +315,7 @@ func isHealthy(ctx context.Context, service *Service) bool {
 			return errors.New("health check failed")
 		}
 	}, exponentialBackoff)
-
+	SminitLog.Trace().Msgf("service %s health check: %s", service.Name, err.Error())
 	return healthy
 
 }
@@ -350,14 +357,36 @@ func (s *Service) isNotHealthy() bool {
 }
 
 func generateService(service ServiceOptions) *Service {
-	stdout := Stdout{
-		File:   os.Stdout,
-		Prefix: fmt.Sprintf("[+]%s: ", service.Name),
-	}
-	stderr := Stderr{
-		File:   os.Stderr,
-		Prefix: fmt.Sprintf("[-]%s: ", service.Name),
-	}
+	stdout := log.Output(zerolog.ConsoleWriter{
+		Out: os.Stdout,
+		FieldsExclude: []string{
+			"component",
+		},
+		PartsOrder: []string{
+			"level",
+			"component",
+			"message",
+		},
+		FormatLevel: func(i interface{}) string {
+			return "INF"
+		},
+	}).With().Str("component", fmt.Sprintf("%s:", service.Name)).Logger().Level(zerolog.InfoLevel)
+
+	stderr := log.Output(zerolog.ConsoleWriter{
+		Out: os.Stdout,
+		FieldsExclude: []string{
+			"component",
+		},
+		PartsOrder: []string{
+			"level",
+			"component",
+			"message",
+		},
+		FormatLevel: func(i interface{}) string {
+			return "ERR"
+		},
+	}).With().Str("component", fmt.Sprintf("%s:", service.Name)).Logger().Level(zerolog.ErrorLevel)
+
 	healthCheck := service.HealthCheck
 	if healthCheck == "" {
 		healthCheck = "sleep 1"
@@ -370,8 +399,8 @@ func generateService(service ServiceOptions) *Service {
 		healthCheck:  healthCheck,
 		cmdStr:       service.Cmd,
 		oneShot:      service.OneShot,
-		stdout:       &stdout,
-		stderr:       &stderr,
+		stdoutLogger: stdout,
+		stderrLogger: stderr,
 		children:     map[string]bool{},
 		parents:      map[string]bool{},
 		startSignal:  make(chan bool),
@@ -390,34 +419,6 @@ func (m *Manager) addToGraph(service ServiceOptions) error {
 		m.services[parent].children[service.Name] = true
 	}
 	return nil
-}
-
-type Stdout struct {
-	File   *os.File
-	Prefix string
-}
-
-type Stderr struct {
-	File   *os.File
-	Prefix string
-}
-
-func (s *Stdout) Write(b []byte) (n int, err error) {
-	_, err = s.File.Write([]byte(s.Prefix))
-	if err != nil {
-		return 0, err
-	}
-
-	return s.File.Write(b)
-}
-
-func (s *Stderr) Write(b []byte) (n int, err error) {
-	_, err = s.File.Write([]byte(s.Prefix))
-	if err != nil {
-		return 0, err
-	}
-
-	return s.File.Write(b)
 }
 
 func NewExponentialBackOff() *backoff.ExponentialBackOff {

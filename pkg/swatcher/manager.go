@@ -154,13 +154,13 @@ func (m *Manager) Delete(name string) error {
 	service := m.services[name]
 	service.stopSignal <- true
 	service.deleteSignal <- true
-	for parent := range service.parents {
-		delete(m.services[parent].children, name)
-	}
-	for child := range service.children {
-		delete(m.services[child].parents, name)
-		m.startIfEligible(child)
-	}
+	// for parent := range service.parents {
+	// 	delete(m.services[parent].children, name)
+	// }
+	// for child := range service.children {
+	// 	delete(m.services[child].parents, name)
+	// 	m.startIfEligible(child)
+	// }
 	delete(m.services, name)
 	SminitLog.Info().Msgf("service %s is deleted", name)
 	return nil
@@ -338,15 +338,17 @@ func (m *Manager) startEligibleChildren(serviceName string) {
 }
 
 func (m *Manager) startIfEligible(serviceName string) {
-	service := m.services[serviceName]
+	service, ok := m.services[serviceName]
 
-	if service.hasStarted() {
+	if !ok || service.hasStarted() {
 		return
 	}
+
 	startSignal := true
-	for parent := range service.parents {
-		// if a parent is waiting, we cannot start service
-		if !m.services[parent].isHealthy {
+	for parentName := range service.parents {
+		// if a parent is not present or not healthy, we cannot start service
+		parent, ok := m.services[parentName]
+		if !ok || !parent.isHealthy {
 			startSignal = false
 			break
 		}

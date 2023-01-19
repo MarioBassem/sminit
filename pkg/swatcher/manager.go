@@ -60,6 +60,9 @@ type Service struct {
 	cmdStr       string
 	stdoutLogger io.Writer
 	stderrLogger io.Writer
+
+	// isHealthy indicates that a process have passed at least one health check, and until now have not exited with an error
+	isHealthy bool
 }
 
 // NewManager creates a new Manager struct and populates it with services generated from provided serviceOptions
@@ -241,6 +244,7 @@ func (m *Manager) serviceRoutine(name string) {
 				select {
 
 				case <-ctx.Done():
+					service.isHealthy = false
 					return backoff.Permanent(fmt.Errorf("service %s was stopped", service.Name))
 
 				default:
@@ -256,19 +260,24 @@ func (m *Manager) serviceRoutine(name string) {
 						SminitLog.Error().Msgf("error while starting process %s. %s", service.Name, err.Error())
 						return errors.New("restarting service")
 					}
-					m.changeStatus(service.Name, Started)
+					service.Status = Started
 
 					if isHealthy(ctx, service) {
-						m.changeStatus(service.Name, Running)
+						service.isHealthy = true
+						service.Status = Running
+						m.startEligibleChildren(service.Name)
+					} else {
+						service.isHealthy = false
 					}
 
 					err = cmd.Wait()
 					if err != nil {
 						SminitLog.Error().Msgf("error while running process %s. %s", service.Name, err.Error())
-						m.changeStatus(service.Name, Failure)
+						service.isHealthy = false
+						service.Status = Failure
 						return errors.New("restarting service")
 					} else {
-						m.changeStatus(service.Name, Successful)
+						service.Status = Successful
 						if service.oneShot {
 							return backoff.Permanent(fmt.Errorf("service %s has finished", service.Name))
 						}
@@ -283,8 +292,7 @@ func (m *Manager) serviceRoutine(name string) {
 			if service.oneShot && service.Status == Successful {
 				return
 			}
-
-			m.changeStatus(service.Name, Stopped)
+			service.Status = Stopped
 
 		default:
 			time.Sleep(100 * time.Millisecond)
@@ -322,10 +330,8 @@ func isHealthy(ctx context.Context, service *Service) bool {
 
 }
 
-func (m *Manager) changeStatus(serviceName string, newStatus Status) {
-	// change status of service
+func (m *Manager) startEligibleChildren(serviceName string) {
 	// check if dependent services are eligible to be run
-	m.services[serviceName].Status = newStatus
 	for child := range m.services[serviceName].children {
 		m.startIfEligible(child)
 	}
@@ -340,7 +346,7 @@ func (m *Manager) startIfEligible(serviceName string) {
 	startSignal := true
 	for parent := range service.parents {
 		// if a parent is waiting, we cannot start service
-		if m.services[parent].isNotHealthy() {
+		if !m.services[parent].isHealthy {
 			startSignal = false
 			break
 		}
@@ -352,10 +358,6 @@ func (m *Manager) startIfEligible(serviceName string) {
 
 func (s *Service) hasStarted() bool {
 	return s.Status == Running || s.Status == Started || s.Status == Successful || s.Status == Failure
-}
-
-func (s *Service) isNotHealthy() bool {
-	return s.Status == Pending || s.Status == Stopped
 }
 
 func generateService(service ServiceOptions) *Service {
@@ -408,6 +410,7 @@ func generateService(service ServiceOptions) *Service {
 		startSignal:  make(chan bool),
 		stopSignal:   make(chan bool),
 		deleteSignal: make(chan bool),
+		isHealthy:    false,
 	}
 	return &newService
 }

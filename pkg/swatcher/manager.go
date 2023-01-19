@@ -152,15 +152,11 @@ func (m *Manager) Delete(name string) error {
 	}
 
 	service := m.services[name]
-	service.stopSignal <- true
+	if service.hasStarted() {
+		service.stopSignal <- true
+	}
 	service.deleteSignal <- true
-	// for parent := range service.parents {
-	// 	delete(m.services[parent].children, name)
-	// }
-	// for child := range service.children {
-	// 	delete(m.services[child].parents, name)
-	// 	m.startIfEligible(child)
-	// }
+
 	delete(m.services, name)
 	SminitLog.Info().Msgf("service %s is deleted", name)
 	return nil
@@ -269,7 +265,7 @@ func (m *Manager) serviceRoutine(name string) {
 					} else {
 						service.isHealthy = false
 					}
-
+					log.Print("waiting")
 					err = cmd.Wait()
 					if err != nil {
 						SminitLog.Error().Msgf("error while running process %s. %s", service.Name, err.Error())
@@ -311,6 +307,7 @@ func isHealthy(ctx context.Context, service *Service) bool {
 	exponentialBackoff.MaxElapsedTime = time.Minute
 	healthy := false
 	err := backoff.Retry(func() error {
+		log.Print("backoff health check")
 		select {
 		case <-ctx.Done():
 			return backoff.Permanent(errors.New("context canceled"))

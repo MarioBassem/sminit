@@ -19,6 +19,7 @@
 - to delete a service from tracked services, run ```sminit delete example_service```.
 - to start a stopped service, run ```sminit start example_service```.
 - to stop a started or running service, run ```sminit stop example_service```.
+- to show sminit logs, run ```sminit log```.
 
 ## Creating a service definition file
 

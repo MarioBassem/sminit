@@ -1,6 +1,6 @@
 # sminit
 
-- sminit is a trivial service manager on linux.
+- sminit is a trivial service manager on linux trying to mimic [zinit](https://github.com/threefoldtech/zinit).
 - it provides the functionality to start, stop, add, delete, and show services' logs.
 - it allows service dependency, e.g. you can tell it to start service a when service b is in running status.
 - users are able to specify whether they want to run a service once, or indefinitely.

@@ -2,20 +2,16 @@ package swatch
 
 import (
 	"context"
-	"io"
 	"path"
 	"strings"
 	"sync"
 
 	"fmt"
-	"os"
 	"os/exec"
 	"time"
 
 	"github.com/cenkalti/backoff"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -31,6 +27,13 @@ type Manager struct {
 
 // Status presents service status
 type Status string
+
+type stdoutLogger struct {
+	serviceName string
+}
+type stderrLogger struct {
+	serviceName string
+}
 
 const (
 	Running    Status = "running"
@@ -53,13 +56,13 @@ type Service struct {
 	// children are services that depend on this service.
 	children map[string]bool
 	// parents are services that this service depend on.
-	parents      map[string]bool
-	log          string
-	healthCheck  string
-	oneShot      bool
-	cmdStr       string
-	stdoutLogger io.Writer
-	stderrLogger io.Writer
+	parents     map[string]bool
+	log         string
+	healthCheck string
+	oneShot     bool
+	cmdStr      string
+	stdout      stdoutLogger
+	stderr      stderrLogger
 
 	// isHealthy indicates that a process have passed at least one health check, and until now have not exited with an error
 	isHealthy bool
@@ -247,8 +250,8 @@ func (m *Manager) serviceRoutine(name string) {
 					splittedCmd := strings.Split(service.cmdStr, " ")
 					cmd := exec.CommandContext(ctx, splittedCmd[0], splittedCmd[1:]...)
 					if service.log == "stdout" {
-						cmd.Stdout = service.stdoutLogger
-						cmd.Stderr = service.stderrLogger
+						cmd.Stdout = &service.stdout
+						cmd.Stderr = &service.stderr
 					}
 
 					err := cmd.Start()
@@ -265,7 +268,6 @@ func (m *Manager) serviceRoutine(name string) {
 					} else {
 						service.isHealthy = false
 					}
-					log.Print("waiting")
 					err = cmd.Wait()
 					if err != nil {
 						SminitLog.Error().Msgf("error while running process %s. %s", service.Name, err.Error())
@@ -307,7 +309,6 @@ func isHealthy(ctx context.Context, service *Service) bool {
 	exponentialBackoff.MaxElapsedTime = time.Minute
 	healthy := false
 	err := backoff.Retry(func() error {
-		log.Print("backoff health check")
 		select {
 		case <-ctx.Done():
 			return backoff.Permanent(errors.New("context canceled"))
@@ -360,35 +361,12 @@ func (s *Service) hasStarted() bool {
 }
 
 func generateService(service ServiceOptions) *Service {
-	stdout := log.Output(zerolog.ConsoleWriter{
-		Out: os.Stdout,
-		FieldsExclude: []string{
-			"component",
-		},
-		PartsOrder: []string{
-			"level",
-			"component",
-			"message",
-		},
-		FormatLevel: func(i interface{}) string {
-			return "INF"
-		},
-	}).With().Str("component", fmt.Sprintf("%s:", service.Name)).Logger().Level(zerolog.InfoLevel)
-
-	stderr := log.Output(zerolog.ConsoleWriter{
-		Out: os.Stdout,
-		FieldsExclude: []string{
-			"component",
-		},
-		PartsOrder: []string{
-			"level",
-			"component",
-			"message",
-		},
-		FormatLevel: func(i interface{}) string {
-			return "ERR"
-		},
-	}).With().Str("component", fmt.Sprintf("%s:", service.Name)).Logger().Level(zerolog.ErrorLevel)
+	stdout := stdoutLogger{
+		serviceName: service.Name,
+	}
+	stderr := stderrLogger{
+		serviceName: service.Name,
+	}
 
 	healthCheck := service.HealthCheck
 	if healthCheck == "" {
@@ -402,8 +380,8 @@ func generateService(service ServiceOptions) *Service {
 		healthCheck:  healthCheck,
 		cmdStr:       service.Cmd,
 		oneShot:      service.OneShot,
-		stdoutLogger: stdout,
-		stderrLogger: stderr,
+		stdout:       stdout,
+		stderr:       stderr,
 		children:     map[string]bool{},
 		parents:      map[string]bool{},
 		startSignal:  make(chan bool),
@@ -436,4 +414,14 @@ func newExponentialBackOff() *backoff.ExponentialBackOff {
 	}
 	b.Reset()
 	return &b
+}
+
+func (l *stderrLogger) Write(p []byte) (int, error) {
+	SminitLog.Error().Str("component", fmt.Sprintf("%s:", l.serviceName)).Msg(string(p[:len(p)-1]))
+	return len(p), nil
+}
+
+func (l *stdoutLogger) Write(p []byte) (int, error) {
+	SminitLog.Info().Str("component", fmt.Sprintf("%s:", l.serviceName)).Msg(string(p[:len(p)-1]))
+	return len(p), nil
 }

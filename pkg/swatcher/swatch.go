@@ -96,7 +96,7 @@ func createFilesAndDirs() error {
 	if err == nil {
 		return errors.New(fmt.Sprintf("there is a running instance of swatch with pid %d", pid))
 	} else if !errors.Is(err, fs.ErrNotExist) {
-		return errors.Wrap(err, "unexpected error")
+		return err
 	}
 
 	err = os.Mkdir(SminitRunDir, fs.ModeDir)
@@ -115,7 +115,7 @@ func createFilesAndDirs() error {
 func getRunningInstance() (pid int, err error) {
 	b, err := os.ReadFile(SwatchPidPath)
 	if err != nil {
-		return 0, errors.Wrap(err, "could not get swatch running instance pid")
+		return 0, errors.Wrapf(err, "could not read file %s", SwatchPidPath)
 	}
 
 	pid, err = strconv.Atoi(string(b))
@@ -135,7 +135,7 @@ func createSwatchPidFile() error {
 	pidBytes := []byte(strconv.FormatInt(int64(os.Getpid()), 10))
 	_, err = f.Write(pidBytes)
 	if err != nil {
-		return errors.Wrapf(err, "could not write swatch pid in %s", SwatchPidPath)
+		return err
 	}
 
 	return nil

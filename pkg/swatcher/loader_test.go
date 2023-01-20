@@ -91,7 +91,7 @@ func WriteServices(dir string, serviceOptionsMap map[string]ServiceOptions) erro
 
 		_, err = file.Write(bytes)
 		if err != nil {
-			return errors.Wrap(err, "could not write bytes")
+			return err
 		}
 	}
 	return nil

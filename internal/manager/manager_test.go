@@ -1,4 +1,4 @@
-package swatch
+package manager
 
 import (
 	"log"

@@ -1,6 +1,8 @@
-package swatch
+package manager
 
 import (
+	"fmt"
+	"io"
 	"os"
 	"path"
 	"strings"
@@ -20,7 +22,6 @@ type ServiceOptions struct {
 
 // LoadAll is responsible for loading all services from /etc/sminit into multiple Service structs
 // Users should provide their service definition yaml files in /etc/sminit
-// Load ignores any subdirectories in /etc/sminit, or any non-regular files.
 func LoadAll(servicesDirPath string) (map[string]ServiceOptions, error) {
 	entries, err := os.ReadDir(servicesDirPath)
 	if err != nil {
@@ -31,33 +32,41 @@ func LoadAll(servicesDirPath string) (map[string]ServiceOptions, error) {
 
 	for _, entry := range entries {
 		if !entry.Type().IsRegular() {
-			continue
+			return nil, fmt.Errorf("all entries in %s should be regular files", servicesDirPath)
 		}
 
 		serviceOptionsFileName := entry.Name()
+
 		splittedFileName := strings.Split(serviceOptionsFileName, ".")
 		if len(splittedFileName) != 2 || splittedFileName[1] != "yaml" {
-			return nil, errors.Wrapf(err, `%s does not have the .yaml extension`, serviceOptionsFileName)
+			return nil, errors.Wrapf(err, `%s does not have .yaml extension`, serviceOptionsFileName)
 		}
 
 		path := path.Join(servicesDirPath, serviceOptionsFileName)
+
 		name := splittedFileName[0]
-		service, err := Load(path, name)
+
+		file, err := os.Open(path)
+		if err != nil {
+			return nil, errors.Wrapf(err, "could not open file at %s", path)
+		}
+
+		service, err := ServiceReader(file, name)
 		if err != nil {
 			return nil, errors.Wrapf(err, "could not load service %s.", name)
 		}
+
 		optionsMap[service.Name] = service
 	}
 
 	return optionsMap, nil
 }
 
-// Load is responsible for loading a service from /etc/sminit with a provided serviceName into a Service struct.
-func Load(path, serviceName string) (ServiceOptions, error) {
-
-	bytes, err := os.ReadFile(path)
+// ServiceReader is responsible for loading a service from /etc/sminit with a provided serviceName into a Service struct.
+func ServiceReader(reader io.Reader, serviceName string) (ServiceOptions, error) {
+	bytes, err := io.ReadAll(reader)
 	if err != nil {
-		return ServiceOptions{}, errors.Wrapf(err, "could not read contents of file %s", path)
+		return ServiceOptions{}, errors.Wrapf(err, "could not read service %s options from reader", serviceName)
 	}
 
 	service := ServiceOptions{
@@ -66,7 +75,7 @@ func Load(path, serviceName string) (ServiceOptions, error) {
 
 	err = yaml.Unmarshal(bytes, &service)
 	if err != nil {
-		return ServiceOptions{}, errors.Wrapf(err, "could not unmarshal contents of file %s", path)
+		return ServiceOptions{}, errors.Wrapf(err, "could not unmarshal bytes contents %s", (bytes))
 	}
 
 	return service, nil

@@ -1,7 +1,8 @@
-package swatch
+package manager
 
 import (
 	"context"
+	"os"
 	"path"
 	"strings"
 	"sync"
@@ -22,11 +23,8 @@ var (
 // Manager handles service manipulation
 type Manager struct {
 	services map[string]*Service
-	sync.Mutex
+	mut      sync.Mutex
 }
-
-// Status presents service status
-type Status string
 
 type stdoutLogger struct {
 	serviceName string
@@ -34,6 +32,9 @@ type stdoutLogger struct {
 type stderrLogger struct {
 	serviceName string
 }
+
+// Status presents service status
+type Status string
 
 const (
 	Running    Status = "running"
@@ -84,7 +85,7 @@ func NewManager(serviceOptions map[string]ServiceOptions) (*Manager, error) {
 
 func (m *Manager) populateServices(serviceOptions map[string]ServiceOptions) error {
 	for name, opts := range serviceOptions {
-		newService := generateService(opts)
+		newService := newService(opts)
 		m.services[name] = newService
 	}
 
@@ -112,8 +113,8 @@ func (m *Manager) Add(serviceName string) error {
 	// fire go routine for service
 	// check if all parents are in Running or Successful state, if true, send a start signal for this service
 	// return
-	m.Lock()
-	defer m.Unlock()
+	m.mut.Lock()
+	defer m.mut.Unlock()
 
 	if _, ok := m.services[serviceName]; ok {
 		return errors.Wrapf(ErrBadRequest, "failed to add %s. a service with the same name is already tracked", serviceName)
@@ -121,12 +122,18 @@ func (m *Manager) Add(serviceName string) error {
 
 	fileName := strings.Join([]string{serviceName, ".yaml"}, "")
 	path := path.Join(ServiceDefinitionDir, fileName)
-	serviceOptions, err := Load(path, serviceName)
+
+	file, err := os.Open(path)
+	if err != nil {
+		return errors.Wrapf(err, "could not open file at %s", path)
+	}
+
+	serviceOptions, err := ServiceReader(file, serviceName)
 	if err != nil {
 		return errors.Wrapf(err, "could not load service %s", serviceName)
 	}
 
-	newService := generateService(serviceOptions)
+	newService := newService(serviceOptions)
 	m.services[newService.Name] = newService
 	err = m.addToGraph(serviceOptions)
 	if err != nil {
@@ -147,8 +154,8 @@ func (m *Manager) Delete(name string) error {
 	// send delete signal
 	// remove from service map, and from graph
 	// return
-	m.Lock()
-	defer m.Unlock()
+	m.mut.Lock()
+	defer m.mut.Unlock()
 
 	if _, ok := m.services[name]; !ok {
 		return errors.Wrapf(ErrBadRequest, "there is no tracked service with name %s", name)
@@ -170,8 +177,8 @@ func (m *Manager) Start(name string) error {
 	// check parents' statuses of service
 	// if all are running or successful, send start signal
 	// return
-	m.Lock()
-	defer m.Unlock()
+	m.mut.Lock()
+	defer m.mut.Unlock()
 
 	if _, ok := m.services[name]; !ok {
 		return errors.Wrapf(ErrBadRequest, "there is no tracked service with name %s", name)
@@ -190,8 +197,8 @@ func (m *Manager) Start(name string) error {
 func (m *Manager) Stop(name string) error {
 	// cancel service context.
 	// return
-	m.Lock()
-	defer m.Unlock()
+	m.mut.Lock()
+	defer m.mut.Unlock()
 
 	if _, ok := m.services[name]; !ok {
 		return errors.Wrapf(ErrBadRequest, "there is no tracked service with name %s", name)
@@ -206,10 +213,10 @@ func (m *Manager) Stop(name string) error {
 func (m *Manager) List() []Service {
 	// list all services with their statuses
 	// return
-	m.Lock()
-	defer m.Unlock()
+	m.mut.Lock()
+	defer m.mut.Unlock()
 
-	ret := make([]Service, 0)
+	var ret []Service
 	for _, service := range m.services {
 		ret = append(ret, *service)
 	}
@@ -360,7 +367,7 @@ func (s *Service) hasStarted() bool {
 	return s.Status == Running || s.Status == Started || s.Status == Successful || s.Status == Failure
 }
 
-func generateService(service ServiceOptions) *Service {
+func newService(service ServiceOptions) *Service {
 	stdout := stdoutLogger{
 		serviceName: service.Name,
 	}

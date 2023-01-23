@@ -1,4 +1,4 @@
-package swatch
+package manager
 
 import (
 	"encoding/json"
@@ -13,34 +13,34 @@ var (
 	Port    = 8080
 )
 
-func (s *Swatcher) startHTTPServer() error {
+func (s *Watcher) startHTTPServer() error {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/start", s.startHandler)
-	mux.HandleFunc("/stop", s.stopHandler)
-	mux.HandleFunc("/add", s.addHandler)
-	mux.HandleFunc("/delete", s.deleteHandler)
-	mux.HandleFunc("/list", s.listHandler)
+	mux.HandleFunc("/start", s.start)
+	mux.HandleFunc("/stop", s.stop)
+	mux.HandleFunc("/add", s.add)
+	mux.HandleFunc("/delete", s.delete)
+	mux.HandleFunc("/list", s.list)
 	err := http.ListenAndServe(fmt.Sprintf("%s:%d", Address, Port), mux)
 	return err
 }
 
-func (s *Swatcher) startHandler(w http.ResponseWriter, r *http.Request) {
-	sminitHandler(w, r, s.Manager.Start)
+func (s *Watcher) start(w http.ResponseWriter, r *http.Request) {
+	handler(w, r, s.Manager.Start)
 }
 
-func (s *Swatcher) stopHandler(w http.ResponseWriter, r *http.Request) {
-	sminitHandler(w, r, s.Manager.Stop)
+func (s *Watcher) stop(w http.ResponseWriter, r *http.Request) {
+	handler(w, r, s.Manager.Stop)
 }
 
-func (s *Swatcher) deleteHandler(w http.ResponseWriter, r *http.Request) {
-	sminitHandler(w, r, s.Manager.Delete)
+func (s *Watcher) delete(w http.ResponseWriter, r *http.Request) {
+	handler(w, r, s.Manager.Delete)
 }
 
-func (s *Swatcher) addHandler(w http.ResponseWriter, r *http.Request) {
-	sminitHandler(w, r, s.Manager.Add)
+func (s *Watcher) add(w http.ResponseWriter, r *http.Request) {
+	handler(w, r, s.Manager.Add)
 }
 
-func (s *Swatcher) listHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Watcher) list(w http.ResponseWriter, r *http.Request) {
 
 	services := s.Manager.List()
 	contentBytes, err := json.Marshal(services)
@@ -55,7 +55,7 @@ func (s *Swatcher) listHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func sminitHandler(w http.ResponseWriter, r *http.Request, action func(serviceName string) error) {
+func handler(w http.ResponseWriter, r *http.Request, action func(serviceName string) error) {
 	serviceName, err := io.ReadAll(r.Body)
 	if err != nil {
 		SminitLog.Error().Msgf("could not read body: %s\n", err)
@@ -68,11 +68,13 @@ func sminitHandler(w http.ResponseWriter, r *http.Request, action func(serviceNa
 	switch {
 	case errors.Is(err, ErrBadRequest):
 		w.WriteHeader(400)
-		fallthrough
+
 	case errors.Is(err, ErrSminitInternalError):
 		w.WriteHeader(500)
-		fallthrough
-	case err != nil:
+
+	}
+
+	if err != nil {
 		_, err = w.Write([]byte(err.Error()))
 		if err != nil {
 			SminitLog.Error().Msg(err.Error())

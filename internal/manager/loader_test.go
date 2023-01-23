@@ -1,6 +1,8 @@
-package swatch
+package manager
 
 import (
+	"bytes"
+	"encoding/json"
 	"os"
 	"path"
 	"testing"
@@ -70,7 +72,10 @@ func TestLoader(t *testing.T) {
 		err := WriteServices(tmpDir, want)
 		assert.NoError(t, err)
 
-		serviceOptions, err := Load(tmpDir, "s1")
+		wantBytes, err := json.Marshal(want["s1"])
+		assert.NoError(t, err)
+
+		serviceOptions, err := ServiceReader(bytes.NewReader(wantBytes), "s1")
 		assert.NoError(t, err)
 		assert.Equal(t, want["s1"], serviceOptions)
 	})

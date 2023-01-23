@@ -14,12 +14,13 @@
   ```
 
 - create service definition files in `/etc/sminit`
-- run ```sminit swatch``` with root user privileges to tell sminit to keep track of services in `/etc/sminit` and start whichever is eligible.
+- run ```sminit init``` with root user privileges to tell sminit to keep track of services in `/etc/sminit` and start whichever is eligible.
 - to add a new service to tracked services, create its definition file in `/etc/sminit/example_service.yaml`, then run ```sminit add example_service```.
 - to delete a service from tracked services, run ```sminit delete example_service```.
 - to start a stopped service, run ```sminit start example_service```.
 - to stop a started or running service, run ```sminit stop example_service```.
 - to show sminit logs, run ```sminit log```.
+- to list all tracked services, run ```sminit list```.
 
 ## Creating a service definition file
 

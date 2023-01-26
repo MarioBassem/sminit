@@ -125,19 +125,19 @@ func (m *Manager) Add(serviceName string) error {
 
 	file, err := os.Open(path)
 	if err != nil {
-		return errors.Wrapf(err, "could not open file at %s", path)
+		return errors.Wrapf(ErrSminitInternalError, "could not open file at %s. %s", path, err.Error())
 	}
 
 	serviceOptions, err := ServiceReader(file, serviceName)
 	if err != nil {
-		return errors.Wrapf(err, "could not load service %s", serviceName)
+		return errors.Wrapf(ErrSminitInternalError, "could not load service %s. %s", serviceName, err.Error())
 	}
 
 	newService := newService(serviceOptions)
 	m.services[newService.Name] = newService
 	err = m.addToGraph(serviceOptions)
 	if err != nil {
-		return errors.Wrap(err, "failed to modify service graph")
+		return errors.Wrapf(ErrBadRequest, "failed to modify service graph. %s", err.Error())
 	}
 
 	go m.serviceRoutine(newService.Name)
@@ -243,6 +243,7 @@ func (m *Manager) serviceRoutine(name string) {
 			return
 
 		case <-service.startSignal:
+			// TODO: move start eligibility check here
 			ctx, cancel := context.WithCancel(context.Background())
 			go cancellationRoutine(cancel, service.stopSignal)
 
@@ -306,6 +307,7 @@ func (m *Manager) serviceRoutine(name string) {
 }
 
 func cancellationRoutine(cancel context.CancelFunc, stopSignal chan bool) {
+	// TODO: make stop or delete signal cancel context
 	<-stopSignal
 	cancel()
 }
@@ -400,6 +402,7 @@ func newService(service ServiceOptions) *Service {
 }
 
 func (m *Manager) addToGraph(service ServiceOptions) error {
+	// TODO: this should be atomic. if there is a failure, graph state should be cleaned
 	for _, parent := range service.After {
 		if _, ok := m.services[parent]; !ok {
 			return errors.Wrapf(ErrBadRequest, "service %s does not exist", parent)

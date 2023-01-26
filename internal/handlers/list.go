@@ -11,7 +11,7 @@ import (
 )
 
 func ListHandler() {
-	response, err := http.Get(fmt.Sprintf("http://%s:%d/list", manager.Address, manager.Port))
+	response, err := http.Get(fmt.Sprintf("http://%s:%d/services", manager.Address, manager.Port))
 	if err != nil {
 		manager.SminitLog.Error().Msgf("error sending list request: %s", err.Error())
 		return

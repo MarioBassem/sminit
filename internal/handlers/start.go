@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,7 +9,14 @@ import (
 )
 
 func StartHandler(args []string) {
-	response, err := http.Post(fmt.Sprintf("http://%s:%d/start", manager.Address, manager.Port), "text", bytes.NewBuffer([]byte(args[0])))
+	client := &http.Client{}
+	request, err := http.NewRequest(http.MethodPut, fmt.Sprintf("http://%s:%d/services/%s/start", manager.Address, manager.Port, args[0]), nil)
+	if err != nil {
+		manager.SminitLog.Error().Msgf("error creating start request: %s", err.Error())
+		return
+	}
+
+	response, err := client.Do(request)
 	if err != nil {
 		manager.SminitLog.Error().Msgf("error sending start request: %s", err.Error())
 		return

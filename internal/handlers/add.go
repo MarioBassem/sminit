@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,7 +9,7 @@ import (
 )
 
 func AddHandler(args []string) {
-	response, err := http.Post(fmt.Sprintf("http://%s:%d/add", manager.Address, manager.Port), "text", bytes.NewBuffer([]byte(args[0])))
+	response, err := http.Post(fmt.Sprintf("http://%s:%d/services/%s", manager.Address, manager.Port, args[0]), "", nil)
 	if err != nil {
 		manager.SminitLog.Error().Msgf("error sending add request: %s", err.Error())
 		return

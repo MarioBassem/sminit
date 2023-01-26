@@ -9,13 +9,9 @@ import (
 
 func InitHandler() {
 	ctx := &daemon.Context{
-		// PidFileName: "sample2.pid",
-		// PidFilePerm: 0644,
-		// LogFileName: "sample2.log",
 		LogFilePerm: 0640,
 		WorkDir:     "/",
 		Umask:       027,
-		// Args:    []string{"[go-daemon sample2]"},
 		LogFileName: "/run/sminit.log",
 	}
 
@@ -28,7 +24,7 @@ func InitHandler() {
 	}
 	defer ctx.Release()
 
-	err = manager.Watch()
+	err = manager.StartApp()
 	if err != nil {
 		manager.SminitLog.Error().Msg(err.Error())
 	}

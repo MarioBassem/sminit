@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,7 +9,15 @@ import (
 )
 
 func DeleteHandler(args []string) {
-	response, err := http.Post(fmt.Sprintf("http://%s:%d/delete", manager.Address, manager.Port), "text", bytes.NewBuffer([]byte(args[0])))
+	client := &http.Client{}
+
+	request, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("http://%s:%d/services/%s", manager.Address, manager.Port, args[0]), nil)
+	if err != nil {
+		manager.SminitLog.Error().Msgf("error creating delete request: %s", err.Error())
+		return
+	}
+
+	response, err := client.Do(request)
 	if err != nil {
 		manager.SminitLog.Error().Msgf("error sending delete request: %s", err.Error())
 		return

@@ -1,17 +1,5 @@
 # manager
 
-## Constants
-
-```golang
-const (
-    SminitPidPath        = "/run/sminit/sminit.pid"
-    SminitRunDir         = "/run/sminit"
-    SminitLogPath        = "/run/sminit.log"
-    SminitSocketPath     = "/run/sminit/sminit.sock"
-    ServiceDefinitionDir = "/etc/sminit"
-)
-```
-
 ## Variables
 
 ```golang
@@ -47,6 +35,12 @@ var (
 
 ## Types
 
+### type [App](/swatch.go#L15)
+
+`type App struct { ... }`
+
+App handles services through the manager, and accepts requests through Listener
+
 ### type [Manager](/manager.go#L24)
 
 `type Manager struct { ... }`
@@ -68,26 +62,6 @@ Service contains all needed information during the lifetime of a service
 `type Status string`
 
 Status presents service status
-
-#### Constants
-
-```golang
-const (
-    Running    Status = "running"
-    Successful Status = "successful"
-    Started    Status = "started"
-
-    Pending Status = "pending"
-    Failure Status = "failure"
-    Stopped Status = "stopped"
-)
-```
-
-### type [Watcher](/swatch.go#L19)
-
-`type Watcher struct { ... }`
-
-Watcher handles services through the manager, and accepts requests through Listener
 
 ---
 Readme created from Go doc with [goreadme](https://github.com/posener/goreadme)

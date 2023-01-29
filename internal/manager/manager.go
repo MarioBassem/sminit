@@ -2,8 +2,6 @@ package manager
 
 import (
 	"context"
-	"os"
-	"path"
 	"strings"
 	"sync"
 
@@ -71,7 +69,9 @@ type Service struct {
 	deleteSignal chan bool
 	stopSignal   chan bool
 
-	mut sync.RWMutex
+	isStopped chan bool
+	isDeleted chan bool
+	mut       sync.RWMutex
 }
 
 // NewManager creates a new Manager struct and populates it with services generated from provided serviceOptions
@@ -145,44 +145,31 @@ func (m *Manager) fireServices() {
 }
 
 // Add adds a new service to the list of services tracked by the manager
-func (m *Manager) Add(name string) error {
+func (m *Manager) Add(opts ServiceOptions) error {
 	// generate Service struct
 	// fire go routine for service
 	// check if all parents are in Running or Successful state, if true, send a start signal for this service
 	// return
 
-	if _, ok := m.getService(name); ok {
-		return errors.Wrapf(ErrBadRequest, "failed to add %s. a service with the same name is already tracked", name)
+	if _, ok := m.getService(opts.Name); ok {
+		return errors.Wrapf(ErrBadRequest, "failed to add %s. a service with the same name is already tracked", opts.Name)
 	}
 
-	fileName := strings.Join([]string{name, ".yaml"}, "")
-	path := path.Join(ServiceDefinitionDir, fileName)
-
-	file, err := os.Open(path)
-	if err != nil {
-		return errors.Wrapf(ErrSminitInternalError, "could not open file at %s. %s", path, err.Error())
-	}
-
-	serviceOptions, err := ServiceReader(file, name)
-	if err != nil {
-		return errors.Wrapf(ErrSminitInternalError, "could not load service %s. %s", name, err.Error())
-	}
-
-	service := newService(serviceOptions)
-	err = m.addService(service)
+	service := newService(opts)
+	err := m.addService(service)
 	if err != nil {
 		return errors.Wrapf(ErrBadRequest, "failed to add service. %s", err.Error())
 	}
 
-	err = m.addToGraph(serviceOptions)
+	err = m.addToGraph(opts)
 	if err != nil {
-		m.deleteService(name)
+		m.deleteService(opts.Name)
 		return errors.Wrapf(ErrBadRequest, "failed to modify service graph. %s", err.Error())
 	}
 
-	go m.serviceRoutine(name)
+	go m.serviceRoutine(opts.Name)
 
-	if m.isEligibleToRun(name) {
+	if m.isEligibleToRun(opts.Name) {
 		service.startSignal <- true
 	}
 
@@ -202,6 +189,7 @@ func (m *Manager) Delete(name string) error {
 	}
 
 	service.deleteSignal <- true
+	<-service.isDeleted
 	m.deleteService(name)
 
 	SminitLog.Info().Msgf("service %s is deleted", name)
@@ -245,6 +233,7 @@ func (m *Manager) Stop(name string) error {
 	}
 
 	service.stopSignal <- true
+	<-service.isStopped
 
 	return nil
 }
@@ -256,6 +245,7 @@ func (m *Manager) List() []Service {
 	services := m.getServicesMap()
 
 	var ret []Service
+
 	for _, service := range services {
 		ret = append(ret, *service)
 	}
@@ -267,7 +257,6 @@ func (m *Manager) serviceRoutine(name string) {
 	if !ok {
 		return
 	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 	for {
 		select {
@@ -276,11 +265,15 @@ func (m *Manager) serviceRoutine(name string) {
 
 		case <-service.stopSignal:
 			cancel()
-			ctx, cancel = context.WithCancel(context.Background())
-			service.changeStatus(Stopped)
 
 		case <-service.deleteSignal:
+			if !service.hasStarted() {
+				service.isDeleted <- true
+				return
+			}
 			cancel()
+			<-service.isStopped
+			service.isDeleted <- true
 			return
 		}
 	}
@@ -298,6 +291,8 @@ func (m *Manager) runService(ctx context.Context, serviceName string) {
 	err := backoff.Retry(func() error {
 		select {
 		case <-ctx.Done():
+			service.changeStatus(Stopped)
+			service.isStopped <- true
 			return backoff.Permanent(fmt.Errorf("service %s was stopped", service.Name))
 
 		default:
@@ -324,6 +319,7 @@ func (m *Manager) runService(ctx context.Context, serviceName string) {
 
 			// service status is running
 			service.changeStatus(Running)
+
 			m.startEligibleChildren(service.Name)
 
 			err = cmd.Wait()
@@ -385,11 +381,16 @@ func (m *Manager) startEligibleChildren(name string) {
 	defer service.mut.RUnlock()
 
 	for childName := range service.children {
-		child := m.services[childName]
+		child, ok := m.getService(childName)
+		if !ok {
+			continue
+		}
 		if child.hasStarted() || !m.isEligibleToRun(childName) {
 			continue
 		}
+
 		child.startSignal <- true
+
 	}
 }
 
@@ -461,6 +462,9 @@ func newService(service ServiceOptions) *Service {
 		startSignal:  make(chan bool),
 		stopSignal:   make(chan bool),
 		deleteSignal: make(chan bool),
+		isStopped:    make(chan bool),
+		isDeleted:    make(chan bool),
+		mut:          sync.RWMutex{},
 	}
 	return &newService
 }

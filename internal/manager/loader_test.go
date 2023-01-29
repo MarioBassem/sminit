@@ -2,9 +2,9 @@ package manager
 
 import (
 	"bytes"
-	"encoding/json"
 	"os"
 	"path"
+	"strings"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -15,7 +15,7 @@ import (
 func TestLoader(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	t.Run("load all", func(t *testing.T) {
+	t.Run("load_all", func(t *testing.T) {
 		want := map[string]ServiceOptions{
 			"s1": {
 				Name:        "s1",
@@ -69,10 +69,7 @@ func TestLoader(t *testing.T) {
 			},
 		}
 
-		err := WriteServices(tmpDir, want)
-		assert.NoError(t, err)
-
-		wantBytes, err := json.Marshal(want["s1"])
+		wantBytes, err := yaml.Marshal(want["s1"])
 		assert.NoError(t, err)
 
 		serviceOptions, err := ServiceReader(bytes.NewReader(wantBytes), "s1")
@@ -83,7 +80,7 @@ func TestLoader(t *testing.T) {
 
 func WriteServices(dir string, serviceOptionsMap map[string]ServiceOptions) error {
 	for _, opt := range serviceOptionsMap {
-		path := path.Join(dir, opt.Name)
+		path := path.Join(dir, strings.Join([]string{opt.Name, ".yaml"}, ""))
 		file, err := os.Create(path)
 		if err != nil {
 			return errors.Wrapf(err, "could not create definition file for service %s", opt.Name)

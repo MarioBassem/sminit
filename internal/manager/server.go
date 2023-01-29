@@ -4,6 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"path"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -31,34 +34,13 @@ func (s *App) startHTTPServer() error {
 }
 
 func (s *App) start(c *gin.Context) {
-	wrapper(c, s.Manager.Start)
-}
-
-func (s *App) stop(c *gin.Context) {
-	wrapper(c, s.Manager.Stop)
-}
-
-func (s *App) delete(c *gin.Context) {
-	wrapper(c, s.Manager.Delete)
-}
-
-func (s *App) add(c *gin.Context) {
-	wrapper(c, s.Manager.Add)
-}
-
-func (s *App) list(c *gin.Context) {
-	services := s.Manager.List()
-	c.JSON(http.StatusOK, services)
-}
-
-func wrapper(c *gin.Context, action func(serviceName string) error) {
 	serviceName, ok := c.Params.Get("name")
 	if !ok {
 		c.Status(http.StatusBadRequest)
 		return
 	}
 
-	err := action(serviceName)
+	err := s.Manager.Start(serviceName)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrBadRequest):
@@ -73,5 +55,95 @@ func wrapper(c *gin.Context, action func(serviceName string) error) {
 	}
 	c.Status(http.StatusOK)
 	return
+}
 
+func (s *App) stop(c *gin.Context) {
+	serviceName, ok := c.Params.Get("name")
+	if !ok {
+		c.Status(http.StatusBadRequest)
+		return
+	}
+
+	err := s.Manager.Stop(serviceName)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrBadRequest):
+			c.String(http.StatusBadRequest, err.Error())
+
+		case errors.Is(err, ErrSminitInternalError):
+			c.String(http.StatusInternalServerError, err.Error())
+		default:
+			c.String(http.StatusInternalServerError, err.Error())
+		}
+		return
+	}
+	c.Status(http.StatusOK)
+	return
+}
+
+func (s *App) delete(c *gin.Context) {
+	serviceName, ok := c.Params.Get("name")
+	if !ok {
+		c.Status(http.StatusBadRequest)
+		return
+	}
+
+	err := s.Manager.Delete(serviceName)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrBadRequest):
+			c.String(http.StatusBadRequest, err.Error())
+
+		case errors.Is(err, ErrSminitInternalError):
+			c.String(http.StatusInternalServerError, err.Error())
+		default:
+			c.String(http.StatusInternalServerError, err.Error())
+		}
+		return
+	}
+	c.Status(http.StatusOK)
+	return
+}
+
+func (s *App) add(c *gin.Context) {
+	serviceName, ok := c.Params.Get("name")
+	if !ok {
+		c.Status(http.StatusBadRequest)
+		return
+	}
+
+	fileName := strings.Join([]string{serviceName, ".yaml"}, "")
+	path := path.Join(ServiceDefinitionDir, fileName)
+	file, err := os.Open(path)
+	if err != nil {
+		c.String(http.StatusInternalServerError, "could not open file at %s. %s", path, err.Error())
+		return
+	}
+
+	opts, err := ServiceReader(file, serviceName)
+	if err != nil {
+		c.String(http.StatusInternalServerError, "could not load service %s. %s", serviceName, err.Error())
+		return
+	}
+
+	err = s.Manager.Add(opts)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrBadRequest):
+			c.String(http.StatusBadRequest, err.Error())
+
+		case errors.Is(err, ErrSminitInternalError):
+			c.String(http.StatusInternalServerError, err.Error())
+		default:
+			c.String(http.StatusInternalServerError, err.Error())
+		}
+		return
+	}
+	c.Status(http.StatusOK)
+	return
+}
+
+func (s *App) list(c *gin.Context) {
+	services := s.Manager.List()
+	c.JSON(http.StatusOK, services)
 }

@@ -22,7 +22,9 @@ func InitHandler() {
 	if d != nil {
 		return
 	}
-	defer ctx.Release()
+	defer func() {
+		_ = ctx.Release()
+	}()
 
 	err = manager.StartApp()
 	if err != nil {

@@ -126,7 +126,10 @@ func (m *Manager) deleteService(name string) {
 func (m *Manager) populateServices(serviceOptions map[string]ServiceOptions) error {
 	for _, opts := range serviceOptions {
 		newService := newService(opts)
-		m.addService(newService)
+		err := m.addService(newService)
+		if err != nil {
+			return errors.Wrapf(err, "failed to add service %s to tracked services", opts.Name)
+		}
 	}
 
 	for name, opts := range serviceOptions {
@@ -269,11 +272,11 @@ func (m *Manager) serviceRoutine(name string) {
 	for {
 		select {
 		case <-service.startSignal:
-			ctx, cancel = context.WithCancel(context.Background())
 			go m.runService(ctx, name)
 
 		case <-service.stopSignal:
 			cancel()
+			ctx, cancel = context.WithCancel(context.Background())
 
 		case <-service.deleteSignal:
 			cancel()

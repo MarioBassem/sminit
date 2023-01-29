@@ -54,7 +54,6 @@ func (s *App) start(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusOK)
-	return
 }
 
 func (s *App) stop(c *gin.Context) {
@@ -78,7 +77,6 @@ func (s *App) stop(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusOK)
-	return
 }
 
 func (s *App) delete(c *gin.Context) {
@@ -102,7 +100,6 @@ func (s *App) delete(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusOK)
-	return
 }
 
 func (s *App) add(c *gin.Context) {
@@ -140,7 +137,6 @@ func (s *App) add(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusOK)
-	return
 }
 
 func (s *App) list(c *gin.Context) {

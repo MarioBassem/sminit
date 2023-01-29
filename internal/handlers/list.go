@@ -36,7 +36,6 @@ func ListHandler() {
 	manager.SminitLog.Info().Msg("tracked services:")
 	for idx := range services {
 		// TODO: needs to be changed
-		log.Default().Writer().Write([]byte(fmt.Sprintf("\tname: %s, status: %s\n", services[idx].Name, services[idx].Status)))
-		// log.Printf("\tname: %s, status: %s\n", services[idx].Name, services[idx].Status)
+		_, _ = log.Default().Writer().Write([]byte(fmt.Sprintf("\tname: %s, status: %s\n", services[idx].Name, services[idx].Status)))
 	}
 }

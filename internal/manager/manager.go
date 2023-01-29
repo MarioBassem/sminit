@@ -74,6 +74,11 @@ type Service struct {
 	mut       sync.RWMutex
 }
 
+type ServiceDesc struct {
+	Name   string
+	Status Status
+}
+
 // NewManager creates a new Manager struct and populates it with services generated from provided serviceOptions
 func NewManager(serviceOptions map[string]ServiceOptions) (*Manager, error) {
 	manager := Manager{
@@ -239,15 +244,18 @@ func (m *Manager) Stop(name string) error {
 }
 
 // List lists all services tracked by the manager.
-func (m *Manager) List() []Service {
+func (m *Manager) List() []ServiceDesc {
 	// list all services with their statuses
 	// return
 	services := m.getServicesMap()
 
-	var ret []Service
+	var ret []ServiceDesc
 
 	for _, service := range services {
-		ret = append(ret, *service)
+		ret = append(ret, ServiceDesc{
+			Name:   service.Name,
+			Status: service.Status,
+		})
 	}
 	return ret
 }
@@ -261,17 +269,18 @@ func (m *Manager) serviceRoutine(name string) {
 	for {
 		select {
 		case <-service.startSignal:
+			ctx, cancel = context.WithCancel(context.Background())
 			go m.runService(ctx, name)
 
 		case <-service.stopSignal:
 			cancel()
 
 		case <-service.deleteSignal:
+			cancel()
 			if !service.hasStarted() {
 				service.isDeleted <- true
 				return
 			}
-			cancel()
 			<-service.isStopped
 			service.isDeleted <- true
 			return

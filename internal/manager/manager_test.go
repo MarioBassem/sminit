@@ -55,7 +55,7 @@ func TestManager(t *testing.T) {
 		time.Sleep(time.Second)
 
 		listServices := manager.List()
-		var s2 Service
+		var s2 ServiceDesc
 		if listServices[0].Name == "s2" {
 			s2 = listServices[0]
 		} else {

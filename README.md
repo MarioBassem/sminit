@@ -10,7 +10,7 @@
 - download the binary:
   
   ```bash
-  wget https://github.com/MarioBassem/sminit/releases/download/v0.0.2/sminit
+  wget https://github.com/MarioBassem/sminit/releases/download/v0.0.3/sminit
   ```
 
 - create service definition files in `/etc/sminit`

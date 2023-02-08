@@ -32,3 +32,25 @@
   - `after`: this is a list of the services that should be in a running state before sminit starts this service.
   - `oneshot`: this is a boolean flag indicating whether to keep starting this service if it is terminated, or run it only once.
   - `healthcheck`: this is a command that has to successfuly run before declaring this service as running. the default is `sleep 1`.
+
+## Service file examples
+
+- Let's have to services, one saying hello, the other saying world. There should be two files in `/ets/sminit`:
+  - the first should be named `hello.yaml`, and should look like this:
+  
+  ```yaml
+    cmd: echo hello
+    log: stdout
+    oneshot: true
+    healthcheck: sleep 3
+  ```
+
+  - the second should look like this:
+
+  ```yaml
+    cmd: echo world
+    log: stdout
+    oneshot: true
+    after:
+      - hello
+  ```

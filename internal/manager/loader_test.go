@@ -72,7 +72,7 @@ func TestLoader(t *testing.T) {
 		wantBytes, err := yaml.Marshal(want["s1"])
 		assert.NoError(t, err)
 
-		serviceOptions, err := ServiceReader(bytes.NewReader(wantBytes), "s1")
+		serviceOptions, err := ReadService(bytes.NewReader(wantBytes), "s1")
 		assert.NoError(t, err)
 		assert.Equal(t, want["s1"], serviceOptions)
 	})

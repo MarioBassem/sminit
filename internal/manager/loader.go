@@ -51,7 +51,7 @@ func LoadAll(servicesDirPath string) (map[string]ServiceOptions, error) {
 			return nil, errors.Wrapf(err, "could not open file at %s", path)
 		}
 
-		service, err := ServiceReader(file, name)
+		service, err := ReadService(file, name)
 		if err != nil {
 			return nil, errors.Wrapf(err, "could not load service %s.", name)
 		}
@@ -62,8 +62,8 @@ func LoadAll(servicesDirPath string) (map[string]ServiceOptions, error) {
 	return optionsMap, nil
 }
 
-// ServiceReader is responsible for loading a service from /etc/sminit with a provided serviceName into a Service struct.
-func ServiceReader(reader io.Reader, serviceName string) (ServiceOptions, error) {
+// ReadService is responsible for loading a service from /etc/sminit with a provided serviceName into a Service struct.
+func ReadService(reader io.Reader, serviceName string) (ServiceOptions, error) {
 	bytes, err := io.ReadAll(reader)
 	if err != nil {
 		return ServiceOptions{}, errors.Wrapf(err, "could not read service %s options from reader", serviceName)

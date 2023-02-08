@@ -117,7 +117,7 @@ func (s *App) add(c *gin.Context) {
 		return
 	}
 
-	opts, err := ServiceReader(file, serviceName)
+	opts, err := ReadService(file, serviceName)
 	if err != nil {
 		c.String(http.StatusInternalServerError, "could not load service %s. %s", serviceName, err.Error())
 		return

@@ -4,3 +4,6 @@ build:
 release:
 	go build -ldflags="-s -w" -o sminit ./cmd/main.go
 
+test:
+	go test ./...
+
